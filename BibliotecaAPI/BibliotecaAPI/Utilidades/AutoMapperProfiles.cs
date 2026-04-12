@@ -1,0 +1,50 @@
+﻿using AutoMapper;
+using BibliotecaAPI.DTOs;
+using BibliotecaAPI.Entidades;
+
+namespace BibliotecaAPI.Utilidades
+{
+    public class AutoMapperProfiles: Profile
+    {
+        public AutoMapperProfiles()
+        {
+            CreateMap<Autor, AutorDTO>().
+                ForMember(dto => dto.NombreCompleto, 
+                          config => config.MapFrom(autor => MapearNombreyApellidoAutor(autor)));
+
+            CreateMap<Autor, AutorConLibrosDTO>().
+                ForMember(dto => dto.NombreCompleto,
+                          config => config.MapFrom(autor => MapearNombreyApellidoAutor(autor)));
+
+            CreateMap<AutorCreacionDTO, Autor>();
+            CreateMap<AutorPatchDTO, Autor>().ReverseMap();
+
+            CreateMap<AutorLibro, LibroDTO>()
+                .ForMember(dto => dto.Id, config => config.MapFrom(ent => ent.LibroId))
+                .ForMember(dto => dto.Titulo, config => config.MapFrom(ent => ent.Libro!.Titulo));
+
+            CreateMap<Libro, LibroDTO>();
+            CreateMap<LibroCreacionDTO, Libro>()
+                .ForMember(ent => ent.Autores, config => config.MapFrom(dto => dto.AutoresIds.Select(idAutor => new AutorLibro { AutorId = idAutor })));
+
+            CreateMap<Libro, LibrosConAutoresDTO>();
+
+            CreateMap<AutorLibro, AutorDTO>()
+                .ForMember(dto => dto.Id, config => config.MapFrom(ent => ent.AutorId))
+                .ForMember(dto => dto.NombreCompleto, config => config.MapFrom(ent => MapearNombreyApellidoAutor(ent.Autor!)));
+
+            CreateMap<LibroCreacionDTO, AutorLibro>()
+                .ForMember(ent => ent.Libro, config => config.MapFrom(dto => new Libro { Titulo = dto.Titulo }));
+
+            CreateMap<ComentarioCreacionDTO, Comentario>();
+            CreateMap<Comentario, ComentarioDTO>()
+                .ForMember(dto => dto.UsuarioEmail, config => config.MapFrom(ent => ent.Usuario.Email));
+
+            CreateMap<ComentarioPatchDTO, Comentario>().ReverseMap();
+
+            CreateMap<Usuario, UsuarioDTO>();
+        }
+
+        private string MapearNombreyApellidoAutor(Autor autor) => $"{autor.Nombres} {autor.Apellidos}";
+    }
+}
