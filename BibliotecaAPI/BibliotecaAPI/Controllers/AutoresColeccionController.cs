@@ -23,6 +23,7 @@ namespace BibliotecaAPI.Controllers
         }
 
         [HttpGet("{ids}", Name = "ObtenerAutoresPorIds")]
+        [AllowAnonymous]
         public async Task<ActionResult<List<AutorConLibrosDTO>>> Get(string ids)
         {
             var idsColeccion = new List<int>();

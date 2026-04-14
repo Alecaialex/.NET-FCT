@@ -3,6 +3,7 @@ using BibliotecaAPI.Datos;
 using BibliotecaAPI.DTOs;
 using BibliotecaAPI.Entidades;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,14 +16,45 @@ namespace BibliotecaAPI.Controllers
     {
         private readonly ApplicationDbContext context;
         private readonly IMapper mapper;
+        private readonly ITimeLimitedDataProtector protectorLimitado;
 
-        public LibrosController(ApplicationDbContext context, IMapper mapper)
+        public LibrosController(ApplicationDbContext context, IMapper mapper, IDataProtectionProvider protectionProvider)
         {
             this.context = context;
             this.mapper = mapper;
+            protectorLimitado = protectionProvider.CreateProtector("LibrosController").ToTimeLimitedDataProtector();
+        }
+
+        [HttpGet("listado/obtenertoken")]
+        public ActionResult ObtenerTokenListado()
+        {
+            var textoPlano = Guid.NewGuid().ToString();
+            var token = protectorLimitado.Protect(textoPlano, TimeSpan.FromSeconds(30));
+            var url = Url.RouteUrl("ObtenerListadoConToken", new { token }, "https");
+            return Ok(new { url });
+        }
+
+        [HttpGet("listado/{token}", Name = "ObtenerListadoConToken")]
+        [AllowAnonymous]
+        public async Task<ActionResult> ObtenerListadoConToken(string token)
+        {
+            try
+            {
+                protectorLimitado.Unprotect(token);
+            }
+            catch
+            {
+                ModelState.AddModelError(nameof(token), "Token expirado o inválido");
+                return ValidationProblem();
+            }
+
+            var libros = await context.Libros.ToListAsync();
+            var librosDTO = mapper.Map<IEnumerable<LibroDTO>>(libros);
+            return Ok(librosDTO);
         }
 
         [HttpGet]
+        [AllowAnonymous]
         public async Task<IEnumerable<LibroDTO>> Get()
         {
             var libros = await context.Libros.ToListAsync();
@@ -31,6 +63,7 @@ namespace BibliotecaAPI.Controllers
         }
 
         [HttpGet("{id:int}", Name ="ObtenerLibro")]
+        [AllowAnonymous]
         public async Task<ActionResult<LibrosConAutoresDTO>> Get(int id)
         {
             var libro = await context.Libros

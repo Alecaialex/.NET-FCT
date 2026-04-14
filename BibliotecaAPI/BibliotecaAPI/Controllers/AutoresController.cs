@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.ComponentModel;
 
 namespace BibliotecaAPI.Controllers
 {
@@ -25,16 +26,16 @@ namespace BibliotecaAPI.Controllers
             this.mapper = mapper;
         }
 
-        [AllowAnonymous]
         [HttpGet]
+        [AllowAnonymous]
         public async Task<IEnumerable<AutorDTO>> Get()
         {
-            logger.LogTrace("Obteniendo el listado de autores");
-            logger.LogDebug("Obteniendo el listado de autores");
+            //logger.LogTrace("Obteniendo el listado de autores");
+            //logger.LogDebug("Obteniendo el listado de autores");
             logger.LogInformation("Obteniendo el listado de autores");
-            logger.LogWarning("Obteniendo el listado de autores");
-            logger.LogError("Obteniendo el listado de autores");
-            logger.LogCritical("Obteniendo el listado de autores");
+            //logger.LogWarning("Obteniendo el listado de autores");
+            //logger.LogError("Obteniendo el listado de autores");
+            //logger.LogCritical("Obteniendo el listado de autores");
             var autores = await context.Autores.ToListAsync();
             // var autoresDTO = autores.Select(autor => new AutorDTO { Id = autor.Id, NombreCompleto = $"{autor.Nombres} {autor.Apellidos}" });
             var autoresDTO = mapper.Map<IEnumerable<AutorDTO>>(autores);
@@ -43,7 +44,12 @@ namespace BibliotecaAPI.Controllers
         }
 
         [HttpGet("{id:int}", Name = "ObtenerAutor")]
-        public async Task<ActionResult<AutorConLibrosDTO>> Get(int id)
+        [AllowAnonymous]
+        [EndpointSummary("Obtiene un autor por su ID")]
+        [EndpointDescription("Este endpoint permite obtener los detalles de un autor específico, incluyendo la lista de libros asociados a ese autor. Se requiere el ID del autor como parámetro.")]
+        [ProducesResponseType<AutorConLibrosDTO>(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<AutorConLibrosDTO>> Get([Description("ID del autor")]int id)
         {
             var autor = await context.Autores
                 .Include(x => x.Libros)

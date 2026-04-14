@@ -6,11 +6,27 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using System.Text.Json.Serialization;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Area de servicios
+
+builder.Services.AddDataProtection();
+
+var origenesPermitidos = builder.Configuration.GetSection("OrigenesPermitidos").Get<string[]>()!;
+
+builder.Services.AddCors(opciones =>
+{
+    opciones.AddDefaultPolicy(opcionesCORS =>
+    {
+        opcionesCORS
+        .WithOrigins(origenesPermitidos)
+        .AllowAnyMethod()
+        .AllowAnyHeader()
+        .WithExposedHeaders("mi-cabecera");
+    });
+});
 
 builder.Services.AddAutoMapper(typeof(Program));
 
@@ -27,6 +43,7 @@ builder.Services.AddIdentityCore<Usuario>()
 builder.Services.AddScoped<UserManager<Usuario>>();
 builder.Services.AddScoped<SignInManager<Usuario>>();
 builder.Services.AddTransient<IServicioUsuarios, ServicioUsuarios>();
+builder.Services.AddTransient<IServicioHash, ServicioHash>();
 
 builder.Services.AddHttpContextAccessor();
 
@@ -40,7 +57,7 @@ builder.Services.AddAuthentication().AddJwtBearer(opciones =>
         ValidateAudience = false,
         ValidateLifetime= false,
         ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["llavejwt"])),
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["llavejwt"]!)),
         ClockSkew = TimeSpan.Zero
     };
 });
@@ -50,10 +67,52 @@ builder.Services.AddAuthorization(opciones =>
     opciones.AddPolicy("esadmin", politica => politica.RequireClaim("esadmin"));
 });
 
+builder.Services.AddSwaggerGen(opciones =>
+{
+    opciones.SwaggerDoc("v1", 
+        new OpenApiInfo { Title = "Biblioteca API",
+                          Description = "API para gestionar una biblioteca online",
+                          Contact = new OpenApiContact
+                          {
+                              Name = "Alex",
+                              Email = "alex@example.com",
+                              Url = new Uri("https://google.com")
+                          },
+                          License = new OpenApiLicense
+                          {
+                              Name = "MIT",
+                              Url = new Uri("https://opensource.org/licenses/MIT")
+                          }
+        });
+
+    /*
+    opciones.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header
+    });
+    */
+});
+
 
 var app = builder.Build();
 
 // Area de middlewares
+
+app.Use(async (contexto, next) =>
+{
+    contexto.Response.Headers.Append("mi-cabecera", "valor");
+
+    await next();
+});
+
+app.UseSwagger();
+app.UseSwaggerUI();
+
+app.UseCors();
 
 app.MapControllers();
 

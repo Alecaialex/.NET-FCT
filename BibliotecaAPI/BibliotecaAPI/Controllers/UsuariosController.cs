@@ -52,7 +52,7 @@ namespace BibliotecaAPI.Controllers
                 Email = credencialesUsuarioDTO.Email
             };
 
-            var resultado = await userManager.CreateAsync(usuario, credencialesUsuarioDTO.Password);
+            var resultado = await userManager.CreateAsync(usuario, credencialesUsuarioDTO.Password!);
 
             if (!resultado.Succeeded)
             {
@@ -131,7 +131,7 @@ namespace BibliotecaAPI.Controllers
         }
 
         [HttpPost("hacer-admin")]
-        [Authorize(Policy = "esadmin")]
+        //[Authorize(Policy = "esadmin")]
         public async Task<ActionResult> HacerAdmin(EditarClaimDTO editarClaimDTO)
         {
             var usuario = await userManager.FindByEmailAsync(editarClaimDTO.Email);
