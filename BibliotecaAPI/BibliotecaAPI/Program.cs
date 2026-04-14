@@ -97,8 +97,8 @@ builder.Services.AddSwaggerGen(opciones =>
     */
 });
 
-
 var app = builder.Build();
+
 
 // Area de middlewares
 
