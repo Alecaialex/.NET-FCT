@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Microsoft.OpenApi.Models;
+using BibliotecaAPI.Swagger;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,7 +25,7 @@ builder.Services.AddCors(opciones =>
         .WithOrigins(origenesPermitidos)
         .AllowAnyMethod()
         .AllowAnyHeader()
-        .WithExposedHeaders("mi-cabecera");
+        .WithExposedHeaders("cantidad-total-registros");
     });
 });
 
@@ -94,34 +95,13 @@ builder.Services.AddSwaggerGen(opciones =>
         In = ParameterLocation.Header
     });
 
-    opciones.AddSecurityRequirement(new OpenApiSecurityRequirement
-    {
-        {
-            new OpenApiSecurityScheme
-            {
-                Reference = new OpenApiReference
-                {
-                    Type = ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            new String[]{}
-        }
-    });
-
+    opciones.OperationFilter<FiltroAutorizacion>();
 });
 
 var app = builder.Build();
 
 
 // Area de middlewares
-
-app.Use(async (contexto, next) =>
-{
-    contexto.Response.Headers.Append("mi-cabecera", "valor");
-
-    await next();
-});
 
 app.UseSwagger();
 app.UseSwaggerUI();
