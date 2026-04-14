@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using Microsoft.OpenApi;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -85,7 +85,6 @@ builder.Services.AddSwaggerGen(opciones =>
                           }
         });
 
-    /*
     opciones.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -94,7 +93,22 @@ builder.Services.AddSwaggerGen(opciones =>
         BearerFormat = "JWT",
         In = ParameterLocation.Header
     });
-    */
+
+    opciones.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new String[]{}
+        }
+    });
+
 });
 
 var app = builder.Build();
@@ -113,6 +127,9 @@ app.UseSwagger();
 app.UseSwaggerUI();
 
 app.UseCors();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 
