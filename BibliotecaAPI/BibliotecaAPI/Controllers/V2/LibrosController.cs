@@ -2,26 +2,34 @@
 using BibliotecaAPI.Datos;
 using BibliotecaAPI.DTOs;
 using BibliotecaAPI.Entidades;
+using BibliotecaAPI.Utilidades;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.EntityFrameworkCore;
 
-namespace BibliotecaAPI.Controllers
+namespace BibliotecaAPI.Controllers.V2
 {
     [ApiController]
-    [Route("api/libros")]
+    [Route("api/v2/libros")]
     [Authorize(Policy = "esadmin")]
     public class LibrosController: ControllerBase
     {
         private readonly ApplicationDbContext context;
         private readonly IMapper mapper;
+        private readonly IOutputCacheStore outputCacheStore;
         private readonly ITimeLimitedDataProtector protectorLimitado;
+        private const string cache = "libros-obtener";
 
-        public LibrosController(ApplicationDbContext context, IMapper mapper, IDataProtectionProvider protectionProvider)
+        public LibrosController(ApplicationDbContext context,
+                                IMapper mapper,
+                                IDataProtectionProvider protectionProvider,
+                                IOutputCacheStore outputCacheStore)
         {
             this.context = context;
             this.mapper = mapper;
+            this.outputCacheStore = outputCacheStore;
             protectorLimitado = protectionProvider.CreateProtector("LibrosController").ToTimeLimitedDataProtector();
         }
 
@@ -30,11 +38,11 @@ namespace BibliotecaAPI.Controllers
         {
             var textoPlano = Guid.NewGuid().ToString();
             var token = protectorLimitado.Protect(textoPlano, TimeSpan.FromSeconds(30));
-            var url = Url.RouteUrl("ObtenerListadoConToken", new { token }, "https");
+            var url = Url.RouteUrl("ObtenerListadoConTokenV2", new { token }, "https");
             return Ok(new { url });
         }
 
-        [HttpGet("listado/{token}", Name = "ObtenerListadoConToken")]
+        [HttpGet("listado/{token}", Name = "ObtenerListadoConTokenV2")]
         [AllowAnonymous]
         public async Task<ActionResult> ObtenerListadoConToken(string token)
         {
@@ -55,15 +63,19 @@ namespace BibliotecaAPI.Controllers
 
         [HttpGet]
         [AllowAnonymous]
-        public async Task<IEnumerable<LibroDTO>> Get()
+        [OutputCache(Tags = [cache])]
+        public async Task<IEnumerable<LibroDTO>> Get([FromQuery] PaginacionDTO paginacionDTO)
         {
-            var libros = await context.Libros.ToListAsync();
+            var queryable = context.Libros.AsQueryable();
+            await HttpContext.InsertarParametrosPaginacionEnCabecera(queryable);
+            var libros = await queryable.OrderBy(x => x.Titulo).Paginar(paginacionDTO).ToListAsync();
             var librosDTO = mapper.Map<IEnumerable<LibroDTO>>(libros);
             return librosDTO;
         }
 
-        [HttpGet("{id:int}", Name ="ObtenerLibro")]
+        [HttpGet("{id:int}", Name ="ObtenerLibroV2")]
         [AllowAnonymous]
+        [OutputCache(Tags = [cache])]
         public async Task<ActionResult<LibrosConAutoresDTO>> Get(int id)
         {
             var libro = await context.Libros
@@ -82,31 +94,24 @@ namespace BibliotecaAPI.Controllers
         }
 
         [HttpPost]
+        [ServiceFilter<FiltroValidacionLibro>]
         public async Task<ActionResult> Post(LibroCreacionDTO libroCreacionDTO)
         {
-            if (!await ValidarAutores(libroCreacionDTO))
-            {
-                return ValidationProblem();
-            }
-
             var libro = mapper.Map<Libro>(libroCreacionDTO);
             AsignarOrdenAutores(libro);
 
             context.Add(libro);
             await context.SaveChangesAsync();
+            await outputCacheStore.EvictByTagAsync(cache, default);
 
             var libroDTO = mapper.Map<LibroDTO>(libro);
-            return CreatedAtRoute("ObtenerLibro", new { id = libro.Id }, libroDTO);
+            return CreatedAtRoute("ObtenerLibroV2", new { id = libro.Id }, libroDTO);
         }
 
         [HttpPut("{id:int}")]
+        [ServiceFilter<FiltroValidacionLibro>]
         public async Task<ActionResult> Put(int id, LibroCreacionDTO libroCreacionDTO)
         {
-            if (!await ValidarAutores(libroCreacionDTO))
-            {
-                return ValidationProblem();
-            }
-
             var libroDB = await context.Libros
                 .Include(x => x.Autores)
                 .FirstOrDefaultAsync(x => x.Id == id);
@@ -120,6 +125,7 @@ namespace BibliotecaAPI.Controllers
             AsignarOrdenAutores(libroDB);
 
             await context.SaveChangesAsync();
+            await outputCacheStore.EvictByTagAsync(cache, default);
 
             return NoContent();
         }
@@ -134,6 +140,8 @@ namespace BibliotecaAPI.Controllers
                 return NotFound();
             }
 
+            await outputCacheStore.EvictByTagAsync(cache, default);
+
             return NoContent();
         }
 
@@ -146,31 +154,6 @@ namespace BibliotecaAPI.Controllers
                     libro.Autores[i].Orden = i + 1;
                 }
             }
-        }
-
-        private async Task<bool> ValidarAutores(LibroCreacionDTO dto)
-        {
-            if (dto.AutoresIds == null || dto.AutoresIds.Count == 0)
-            {
-                ModelState.AddModelError(nameof(dto.AutoresIds), "No se puede crear un libro sin autores");
-                return false;
-            }
-
-            var autoresIdsExisten = await context.Autores
-                .Where(x => dto.AutoresIds.Contains(x.Id))
-                .Select(x => x.Id)
-                .ToListAsync();
-
-            if (autoresIdsExisten.Count != dto.AutoresIds.Count)
-            {
-                var autoresNoExisten = dto.AutoresIds.Except(autoresIdsExisten);
-                var mensaje = $"No existen los autores con los siguientes ids: {string.Join(", ", autoresNoExisten)}";
-
-                ModelState.AddModelError(nameof(dto.AutoresIds), mensaje);
-                return false;
-            }
-
-            return true;
         }
 
     }

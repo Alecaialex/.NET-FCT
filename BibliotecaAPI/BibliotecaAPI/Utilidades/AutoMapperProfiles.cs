@@ -17,6 +17,8 @@ namespace BibliotecaAPI.Utilidades
                           config => config.MapFrom(autor => MapearNombreyApellidoAutor(autor)));
 
             CreateMap<AutorCreacionDTO, Autor>();
+            CreateMap<AutorCreacionConFotoDTO, Autor>().
+                ForMember(ent => ent.Foto, config => config.Ignore());
             CreateMap<AutorPatchDTO, Autor>().ReverseMap();
 
             CreateMap<AutorLibro, LibroDTO>()
