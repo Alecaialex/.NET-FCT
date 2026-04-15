@@ -224,7 +224,9 @@ namespace BibliotecaAPI.Controllers.V2
 
             if (autorCreacionDTO.Foto != null)
             {
-                var fotoActual = await context.Autores.Where(x => x.Id == id).Select(x => x.Foto).FirstAsync();
+                var fotoActual = await context.Autores.Where(x => x.Id == id)
+                                                        .Select(x => x.Foto)
+                                                        .FirstAsync();
 
                 var url = await almacenadorArchivos.Editar(fotoActual, contenedor, autorCreacionDTO.Foto);
 

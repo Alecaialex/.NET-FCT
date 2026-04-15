@@ -30,7 +30,8 @@ namespace BibliotecaAPI.Controllers.V2
             this.context = context;
             this.mapper = mapper;
             this.outputCacheStore = outputCacheStore;
-            protectorLimitado = protectionProvider.CreateProtector("LibrosController").ToTimeLimitedDataProtector();
+            protectorLimitado = protectionProvider.CreateProtector("LibrosController")
+                                                    .ToTimeLimitedDataProtector();
         }
 
         [HttpGet("listado/obtenertoken")]

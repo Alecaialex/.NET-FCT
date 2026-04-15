@@ -25,7 +25,12 @@ namespace BibliotecaAPI.Controllers.V2
         private readonly ApplicationDbContext context;
         private readonly IMapper mapper;
 
-        public UsuariosController(UserManager<Usuario> userManager, IConfiguration configuration, SignInManager<Usuario> signInManager, IServicioUsuarios servicioUsuarios, ApplicationDbContext context, IMapper mapper)
+        public UsuariosController(UserManager<Usuario> userManager,
+                                    IConfiguration configuration,
+                                    SignInManager<Usuario> signInManager,
+                                    IServicioUsuarios servicioUsuarios,
+                                    ApplicationDbContext context,
+                                    IMapper mapper)
         {
             this.userManager = userManager;
             this.configuration = configuration;
