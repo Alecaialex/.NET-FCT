@@ -194,6 +194,7 @@ builder.Services.AddSwaggerGen(opciones =>
     opciones.SwaggerDoc("v1", 
         new OpenApiInfo 
         { 
+            Version = "V1",
             Title = "Biblioteca API",
             Description = "API para gestionar una biblioteca online",
             Contact = new OpenApiContact
@@ -212,7 +213,7 @@ builder.Services.AddSwaggerGen(opciones =>
     opciones.SwaggerDoc("v2",
         new OpenApiInfo
         {
-            Version = "v2",
+            Version = "V2",
             Title = "Biblioteca API",
             Description = "API para gestionar una biblioteca online",
             Contact = new OpenApiContact
