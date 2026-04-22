@@ -10,6 +10,7 @@ using Microsoft.OpenApi.Models;
 using BibliotecaAPI.Swagger;
 using BibliotecaAPI.Utilidades;
 using Microsoft.AspNetCore.Diagnostics;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,6 +26,104 @@ builder.Services.AddOutputCache(opciones =>
 builder.Services.AddStackExchangeRedisOutputCache(opciones =>
 {
     opciones.Configuration = builder.Configuration.GetConnectionString("redis");
+});
+
+builder.Services.AddRateLimiter(opciones =>
+{
+    /*
+    opciones.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "desconocido",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromSeconds(10),
+            }));
+    */
+
+    opciones.AddPolicy("general", context =>
+    {
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "desconocido",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromSeconds(10),
+            });
+    });
+
+    opciones.AddPolicy("estricta", context =>
+    {
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "desconocido",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 2,
+                Window = TimeSpan.FromSeconds(5),
+            });
+    });
+
+    opciones.AddPolicy("movil", context =>
+    {
+        return RateLimitPartition.GetSlidingWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "desconocido",
+            factory: _ => new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromSeconds(10),
+                SegmentsPerWindow = 2,
+                QueueLimit = 1,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            });
+    });
+
+    opciones.AddPolicy("cubeta", context =>
+    {
+        return RateLimitPartition.GetTokenBucketLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "desconocido",
+            factory: _ => new TokenBucketRateLimiterOptions
+            {
+                TokenLimit = 5,
+                TokensPerPeriod = 2,
+                ReplenishmentPeriod = TimeSpan.FromSeconds(10)
+            });
+    });
+
+    opciones.AddPolicy("concurrencia", context =>
+    {
+        return RateLimitPartition.GetConcurrencyLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "desconocido",
+            factory: _ => new ConcurrencyLimiterOptions
+            {
+                PermitLimit = 1
+            });
+    });
+
+    opciones.AddPolicy("prueba-usuario", context =>
+    {
+        var emailClaim = context.User.Claims.Where(claim => claim.Type == "email").FirstOrDefault()!;
+        var email = emailClaim.Value;
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: email,
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 2,
+                Window = TimeSpan.FromSeconds(10)
+            });
+    });
+
+    opciones.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    opciones.OnRejected = async (context, cancellationToken) =>
+    {
+        if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+        {
+            context.HttpContext.Response.Headers["Retry-After"] = retryAfter.TotalSeconds.ToString(); 
+        }
+
+        await context.HttpContext.Response.WriteAsync("Limite excedido, intenta nuevamente más tarde.", cancellationToken);
+    };
 });
 
 builder.Services.AddDataProtection();
@@ -172,6 +271,8 @@ app.UseSwaggerUI(opciones =>
 });
 
 app.UseStaticFiles();
+
+app.UseRateLimiter();
 
 app.UseCors();
 

@@ -14,7 +14,7 @@ namespace BibliotecaAPI.Utilidades
 
             double cantidad = await queryable.CountAsync();
 
-            httpContext.Response.Headers.Add("cantidad-total-registros", cantidad.ToString());
+            httpContext.Response.Headers.Append("cantidad-total-registros", cantidad.ToString());
         }
 
         }

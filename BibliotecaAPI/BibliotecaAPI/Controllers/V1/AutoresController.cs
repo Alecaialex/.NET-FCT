@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.OutputCaching;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using System.ComponentModel;
 using System.Linq.Dynamic.Core;
@@ -18,6 +19,8 @@ namespace BibliotecaAPI.Controllers.V1
     [Route("api/v1/autores")]
     [Authorize(Policy = "esadmin")]
     [FiltroAgregarCabeceras("controlador", "autores")]
+    [EnableRateLimiting("general")]
+
     public class AutoresController : ControllerBase
     {
         private readonly ApplicationDbContext context;
@@ -90,6 +93,7 @@ namespace BibliotecaAPI.Controllers.V1
 
         [HttpGet("filtrar")]
         [AllowAnonymous]
+        [EnableRateLimiting("general")]
         public async Task<ActionResult> Filtrar([FromQuery] AutorFiltroDTO autorFiltroDTO)
         {
             var queryable = context.Autores.AsQueryable();
