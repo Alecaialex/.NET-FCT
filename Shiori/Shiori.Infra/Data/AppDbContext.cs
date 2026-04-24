@@ -1,9 +1,6 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Shiori.Core.Entities;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Shiori.Infra.Data
 {
@@ -33,6 +30,8 @@ namespace Shiori.Infra.Data
                 .HasIndex(m => new { m.AnimeId, m.SnapshotDate });
 
             builder.Entity<User>(u => u.Property("Role"));
+
+            base.OnModelCreating(builder);
         }
     }
 }

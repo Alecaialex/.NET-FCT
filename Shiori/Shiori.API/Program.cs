@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Identity;
 using Shiori.Core.Entities;
 using Shiori.Infra.Data;
+using Npgsql;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,7 +12,8 @@ builder.Services.AddIdentity<User, IdentityRole<Guid>>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
-    options.
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    options.UseNpgsql(connectionString);
 });
 
 builder.Services.AddControllers();
