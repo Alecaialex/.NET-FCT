@@ -1,9 +1,19 @@
+using Microsoft.AspNetCore.Identity;
+using Shiori.Core.Entities;
+using Shiori.Infra.Data;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
+builder.Services.AddIdentity<User, IdentityRole<Guid>>();
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+{
+    options.
+});
+
 builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
