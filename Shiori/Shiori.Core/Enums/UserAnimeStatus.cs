@@ -4,6 +4,7 @@ using System.Text;
 
 namespace Shiori.Core.Enums
 {
+    // Estados de visualización del anime
     public enum UserAnimeStatus
     {
         Planning = 0,

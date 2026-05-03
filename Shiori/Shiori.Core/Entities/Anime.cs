@@ -1,12 +1,17 @@
-﻿using System;
+﻿using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Text;
 
 namespace Shiori.Core.Entities
 {
     public class Anime
     {
-        public int JikanId { get; set; }
+        // ID único del anime en la API externa
+        [Key]
+        public int? JikanId { get; set; }
+        [Required]
         public string Title { get; set; } = string.Empty;
         public string? EnglishTitle { get; set; }
         public string? ImageUrl { get; set; }
@@ -19,8 +24,6 @@ namespace Shiori.Core.Entities
         public string? Type { get; set; }
         public DateTime? AiredFrom { get; set; }
         public DateTime? AiredTo { get; set; }
-        public DateTime LastSyncedAt { get; set; } = DateTime.UtcNow;
         public ICollection<UserAnime> UserAnimes { get; set; } = new List<UserAnime>();
-        public ICollection<AnimeMetric> Metrics { get; set; } = new List<AnimeMetric>();
     }
 }
