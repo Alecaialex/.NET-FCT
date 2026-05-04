@@ -10,7 +10,10 @@ namespace Shiori.Core.Interfaces
         // Obtener el top de animes actual
         Task<IEnumerable<AnimeExternalDto>> GetTopAnimesAsync(int limit = 25);
 
-        // Obtener detalles de un anime por su ID en Jikan
+        // Buscar anime por su ID en Jikan
         Task<AnimeExternalDto?> GetAnimeByJikanIdAsync(int jikanId);
+
+        // Buscar anime por nombre
+        Task<IEnumerable<AnimeExternalDto>> SearchAnimesAsync(string query);
     }
 }

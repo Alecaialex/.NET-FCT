@@ -9,7 +9,5 @@ namespace Shiori.Core.Entities
         public UserRole Role { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-        public ICollection<UserAnime> UserAnimes { get; set; } = new List<UserAnime>();
     }
 }

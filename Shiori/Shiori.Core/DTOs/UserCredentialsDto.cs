@@ -5,6 +5,7 @@ using System.Text;
 
 namespace Shiori.Core.DTOs
 {
+    // DTO para las credenciales del usuario al registrar o iniciar sesión
     public class UserCredentialsDto
     {
         [Required]

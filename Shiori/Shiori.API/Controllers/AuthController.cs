@@ -17,16 +17,12 @@ namespace Shiori.API.Controllers
     {
         private readonly UserManager<User> _userManager;
         private readonly SignInManager<User> _signInManager;
-        private readonly IUserRepository _userRepository;
-        private readonly AppDbContext _context;
         private readonly IConfiguration _configuration;
 
-        public AuthController(UserManager<User> userManager, SignInManager<User> signInManager, IUserRepository userRepository, AppDbContext context, IConfiguration configuration)
+        public AuthController(UserManager<User> userManager, SignInManager<User> signInManager, IConfiguration configuration)
         {
             _userManager = userManager;
             _signInManager = signInManager;
-            _userRepository = userRepository;
-            _context = context;
             _configuration = configuration;
         }
 
@@ -79,17 +75,20 @@ namespace Shiori.API.Controllers
 
         private async Task<AuthResponseDto> BuildToken(UserCredentialsDto userCredentialsDto)
         {
+            var user = await _userManager.FindByEmailAsync(userCredentialsDto.Email);
+
             var claims = new List<Claim>
-            { 
-                new Claim("email", userCredentialsDto.Email)
+            {
+                new Claim("email", userCredentialsDto.Email),
+                new Claim("role", user!.Role.ToString())
             };
-            var usuario = await _userManager.FindByEmailAsync(userCredentialsDto.Email);
-            var claimsdb = await _userManager.GetClaimsAsync(usuario!);
+
+            var claimsdb = await _userManager.GetClaimsAsync(user!);
             claims.AddRange(claimsdb);
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["llavejwt"]!));
             var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var expiration = DateTime.UtcNow.AddHours(1);
+            var expiration = DateTime.UtcNow.AddHours(10);
             var securityToken = new JwtSecurityToken(issuer: null, audience: null, claims: claims, expires: expiration, signingCredentials: credentials);
             
             var token = new JwtSecurityTokenHandler().WriteToken(securityToken);

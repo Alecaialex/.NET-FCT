@@ -19,5 +19,8 @@ namespace Shiori.Core.Interfaces
 
         // Buscar si un anime ya existe en BD por su id de Jikan
         Task<Anime?> GetAnimeByJikanIdAsync(int jikanId);
+
+        // Eliminar un anime por su id
+        Task<bool> DeleteAnimeAsync(int jikanId);
     }
 }

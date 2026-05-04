@@ -11,28 +11,39 @@ namespace Shiori.Core.DTOs
     {
         [JsonPropertyName("mal_id")]
         public int MalId { get; set; }
+
         [JsonPropertyName("title")]
         public string Title { get; set; } = string.Empty;
+
         [JsonPropertyName("title_english")]
         public string? TitleEnglish { get; set; }
+
         [JsonPropertyName("images")]
         public ImageDto Images { get; set; } = new();
+
         [JsonPropertyName("score")]
-        public double Score { get; set; }
+        public double? Score { get; set; }
+
         [JsonPropertyName("rank")]
-        public int Rank { get; set; }
+        public int? Rank { get; set; }
+
         [JsonPropertyName("popularity")]
-        public int Popularity { get; set; }
+        public int? Popularity { get; set; }
+
         [JsonPropertyName("episodes")]
         public int? Episodes { get; set; }
+
         [JsonPropertyName("status")]
-        public string Status { get; set; } = string.Empty;
+        public string? Status { get; set; }
+
         [JsonPropertyName("aired")]
         public AiredDto Aired { get; set; } = new();
+
         [JsonPropertyName("synopsis")]
-        public string Synopsis { get; set; } = string.Empty;
+        public string? Synopsis { get; set; }
+
         [JsonPropertyName("type")]
-        public string Type { get; set; } = string.Empty;
+        public string? Type { get; set; }
     }
 
     public class ImageDto
@@ -55,7 +66,7 @@ namespace Shiori.Core.DTOs
         public DateTime? To { get; set; }
     }
 
-    // DTO para el "Data" de la respsta de Jikan
+    // DTO para el "Data" de la respuesta de Jikan
     public class AnimeResponseDataDto
     {
         [JsonPropertyName("data")]

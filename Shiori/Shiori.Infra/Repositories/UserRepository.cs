@@ -72,10 +72,10 @@ namespace Shiori.Infra.Repositories
                                  .ToListAsync();
         }
 
-        // Obtener UserAnime mediante la ID de Jikan (ID en la API externa)
+        // Obtener UserAnime mediante la ID de Jikan
         public async Task<UserAnime?> GetUserAnimeByJikanIdAsync(Guid userid, int jikanId)
         {
-            // Buscar el anime indicado, si no existe devuelve null
+            // Buscar el anime indicado, si no existe devolver null
             var anime = await _context.Animes
                                       .FirstOrDefaultAsync(a => a.JikanId == jikanId);
 
@@ -93,7 +93,7 @@ namespace Shiori.Infra.Repositories
         // Crear un nuevo UserAnime
         public async Task<UserAnime> CreateOrUpdateUserAnimeAsync(UserAnime userAnime)
         {
-            // Buscamos si ya existe el UserAnime
+            // Buscamos si ya existe esa relación UserAnime
             var existing = await _context.UserAnimes.FindAsync(userAnime.Id);
 
             // Si existe, modificamos los datos a los indicados
@@ -104,6 +104,7 @@ namespace Shiori.Infra.Repositories
                 existing.Progress = userAnime.Progress;
                 existing.StartDate = userAnime.StartDate ?? DateTime.UtcNow;
             }
+
             // Si no existe, lo creamos
             else
             {
@@ -114,6 +115,7 @@ namespace Shiori.Infra.Repositories
             return userAnime;
         }
 
+        // Obtener el usuario actual mediante el email en el token
         public async Task<User?> GetCurrentUser()
         {
             var emailClaim = _contextAccessor.HttpContext?.User.Claims.Where(c => c.Type == "email").FirstOrDefault();

@@ -25,7 +25,7 @@ namespace Shiori.Infra.Services
             return response?.Data ?? new List<AnimeExternalDto>();
         }
 
-        // Obtener un anime por su ID de Jikan (API externa) desde la API
+        // Obtener un anime por su ID de Jikan
         public async Task<AnimeExternalDto?> GetAnimeByJikanIdAsync(int jikanId)
         {
             var url = $"anime/{jikanId}/full";
@@ -34,6 +34,15 @@ namespace Shiori.Infra.Services
             var test = await _httpClient.GetStringAsync(url);
             Console.WriteLine(test);
             return response?.Data;
+        }
+
+        // Búsqueda de animes por nombre a Jikan
+        public async Task<IEnumerable<AnimeExternalDto>> SearchAnimesAsync(string query)
+        {
+            var response = await _httpClient.GetFromJsonAsync<TopAnimeResponseDto>(
+                $"anime?q={Uri.EscapeDataString(query)}");
+
+            return response?.Data ?? new List<AnimeExternalDto>();
         }
 
     }

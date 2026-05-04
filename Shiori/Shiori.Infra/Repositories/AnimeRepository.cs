@@ -20,17 +20,20 @@ namespace Shiori.Infra.Repositories
             _context = context;
         }
 
+        // Convertir fechas a UTC para poder usarlas en postgre
         private DateTime? ToUtc(DateTime? dt)
         {
             if (!dt.HasValue) return null;
             return DateTime.SpecifyKind(dt.Value, DateTimeKind.Utc);
         }
 
+        // Obtener un anime por su ID de Jikan
         public async Task<Anime?> GetAnimeByJikanIdAsync(int jikanId)
         {
             return await _context.Animes.FirstOrDefaultAsync(a => a.JikanId == jikanId);
         }
 
+        // Buscar un anime por su nombre
         public async Task<IEnumerable<Anime>> SearchAnimesAsync(string query, int page = 1)
         {
             var pageSize = 10;
@@ -44,6 +47,7 @@ namespace Shiori.Infra.Repositories
                 .ToListAsync();
         }
 
+        // Añadir un nuevo anime a la BD
         public async Task<bool> AddAnimeToDbAsync(AnimeExternalDto anime)
         {
             var bdAnime = new Anime
@@ -53,12 +57,12 @@ namespace Shiori.Infra.Repositories
                 EnglishTitle = anime.TitleEnglish,
                 ImageUrl = anime.Images?.Jpg?.ImageUrl,
                 Synopsis = anime.Synopsis,
-                Score = anime.Score,
+                Score = anime.Score ?? 0.0,
                 Rank = anime.Rank,
-                Popularity = anime.Popularity,
-                Episodes = anime.Episodes,
-                Status = anime.Status,
-                Type = anime.Type,
+                Popularity = anime.Popularity ?? 0,
+                Episodes = anime.Episodes ?? 0,
+                Status = anime.Status ?? "Unknown",
+                Type = anime.Type ?? "Unknown",
                 AiredFrom = ToUtc(anime.Aired?.From),
                 AiredTo = ToUtc(anime.Aired?.To)
             };
@@ -66,6 +70,7 @@ namespace Shiori.Infra.Repositories
             return await _context.SaveChangesAsync() > 0;
         }
 
+        // Actualizar datos de un anime en la BD
         public async Task<bool> UpdateAnimeAsync(AnimeExternalDto anime)
         {
             var existing = await _context.Animes.FirstOrDefaultAsync(a => a.JikanId == anime.MalId);
@@ -78,16 +83,36 @@ namespace Shiori.Infra.Repositories
             existing.EnglishTitle = anime.TitleEnglish;
             existing.ImageUrl = anime.Images?.Jpg?.ImageUrl;
             existing.Synopsis = anime.Synopsis;
-            existing.Score = anime.Score;
+            existing.Score = anime.Score ?? 0.0;
             existing.Rank = anime.Rank;
-            existing.Popularity = anime.Popularity;
-            existing.Episodes = anime.Episodes;
-            existing.Status = anime.Status;
-            existing.Type = anime.Type;
+            existing.Popularity = anime.Popularity ?? 0;
+            existing.Episodes = anime.Episodes ?? 0;
+            existing.Status = anime.Status ?? "Unknown";
+            existing.Type = anime.Type ?? "Unknown";
             existing.AiredFrom = ToUtc(anime.Aired?.From);
             existing.AiredTo = ToUtc(anime.Aired?.To);
 
             _context.Animes.Update(existing);
+            return await _context.SaveChangesAsync() > 0;
+        }
+
+        // Borrar un anime de la BD
+        public async Task<bool> DeleteAnimeAsync(int jikanId)
+        {
+            var existingAnime = await _context.Animes.FirstOrDefaultAsync(a => a.JikanId == jikanId);
+            if (existingAnime == null)
+            {
+                return false;
+            }
+
+            // Buscar y eliminar las relaciones de UserAnime que tengan este anime
+            var existingUserAnimes = await _context.UserAnimes.Where(ua => ua.AnimeId == existingAnime.JikanId).ToListAsync();
+            foreach (var userAnime in existingUserAnimes)
+            {
+                _context.UserAnimes.Remove(userAnime);
+            }
+
+            _context.Animes.Remove(existingAnime);
             return await _context.SaveChangesAsync() > 0;
         }
     }
