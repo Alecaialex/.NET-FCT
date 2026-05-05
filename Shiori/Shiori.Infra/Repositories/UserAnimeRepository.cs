@@ -225,7 +225,7 @@ namespace Shiori.Infra.Repositories
                     MeanScore = scoredAnimesCount > 0 ? Math.Round(sumScores / scoredAnimesCount, 2) : 0,
                     StatusDistribution = userAnimes
                         .GroupBy(ua => ua.Status.ToString())
-                        .ToDictionary(g => g.Key, g => g.Count())
+                        .ToDictionary(s => s.Key, s => s.Count())
                 };
             }
             catch (Exception ex)

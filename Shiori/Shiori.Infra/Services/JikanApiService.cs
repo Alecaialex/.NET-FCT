@@ -40,7 +40,7 @@ namespace Shiori.Infra.Services
             }
             catch (HttpRequestException httpEx)
             {
-                _logger.LogError(httpEx, "ERROR DE RED: No se pudo contactar con Jikan para obtener el Top Animes.");
+                _logger.LogError(httpEx, "ERROR CONEXIÓN HTTP: No se pudo contactar con Jikan para obtener el Top Animes.");
                 return Enumerable.Empty<AnimeExternalDto>();
             }
             catch (Exception ex)

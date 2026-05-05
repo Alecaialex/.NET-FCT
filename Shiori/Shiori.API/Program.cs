@@ -14,8 +14,9 @@ using Shiori.Core.Configurations;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using NLog;
 using NLog.Web;
+using System.Security.Claims;
 
-// Configuración inicial de Nlog
+// Nlog
 var logger = NLog.Web.NLogBuilder.ConfigureNLog("nlog.config").GetCurrentClassLogger();
 
 try
@@ -23,13 +24,13 @@ try
     logger.Info("Iniciando aplicación");
     var builder = WebApplication.CreateBuilder(args);
 
-    // Configuración de NLog
+    // Nlog
     builder.Logging.ClearProviders();
     builder.Host.UseNLog();
 
 
     // AppConfig
-    var appConfig = new AppConfig();
+    var appConfig = new AppConfig(builder.Configuration);
     builder.Configuration.Bind(appConfig);
     builder.Services.AddSingleton(appConfig);
 
@@ -59,6 +60,7 @@ try
     builder.Services.AddScoped<IUserRepository, UserRepository>();
     builder.Services.AddScoped<IAnimeRepository, AnimeRepository>();
     builder.Services.AddScoped<IUserAnimeRepository, UserAnimeRepository>();
+    builder.Services.AddScoped<IAnimeService, AnimeService>();
     builder.Services.AddSingleton<IJikanApiService, JikanApiService>();
 
     // Background Service
@@ -74,7 +76,7 @@ try
             ValidateAudience = false,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(appConfig.LlaveJwt)),
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(appConfig.JwtKey)),
             ClockSkew = TimeSpan.Zero,
             RoleClaimType = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
         };
@@ -102,7 +104,7 @@ try
     // Servicio de autorización y política para admin
     builder.Services.AddAuthorization(options =>
     {
-        options.AddPolicy("admin", policy => policy.RequireClaim("role", "Admin"));
+        options.AddPolicy("admin", policy => policy.RequireClaim(ClaimTypes.Role, "Admin"));
     });
 
     // NSwag config

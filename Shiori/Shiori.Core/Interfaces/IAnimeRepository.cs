@@ -11,7 +11,7 @@ namespace Shiori.Core.Interfaces
         Task<IEnumerable<Anime>> SearchAnimesAsync(string query, int page = 1);
 
         // Añadir anime a la BD
-        Task<bool> AddAnimeToDbAsync(AnimeExternalDto anime);
+        Task<bool> AddAnimeToDbAsync(Anime anime);
 
         // Actualizar datos del anime en la BD
         Task<bool> UpdateAnimeAsync(AnimeExternalDto anime);

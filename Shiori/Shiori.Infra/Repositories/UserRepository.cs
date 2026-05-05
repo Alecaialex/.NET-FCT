@@ -51,7 +51,7 @@ namespace Shiori.Infra.Repositories
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "DATABASE ERROR: Error crítico al crear usuario {Email}", user.Email);
+                _logger.LogError(ex, "DATABASE ERROR: Error al crear usuario {Email}", user.Email);
                 return false;
             }
         }
@@ -94,7 +94,7 @@ namespace Shiori.Infra.Repositories
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "DATABASE ERROR: Error crítico al intentar actualizar el rol de {Email}", updateUserDto.Email);
+                _logger.LogError(ex, "DATABASE ERROR: Error al intentar actualizar el rol de {Email}", updateUserDto.Email);
                 return false;
             }
         }

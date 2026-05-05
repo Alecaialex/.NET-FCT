@@ -25,44 +25,29 @@ namespace Shiori.Infra.Workers
         {
             var time = _config.UpdateIntervalHours > 0 ? _config.UpdateIntervalHours : 24;
             var delay = TimeSpan.FromHours(time);
+
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
                 {
                     _logger.LogInformation("Actualizando top animes desde Jikan...");
 
+                    // Obtenemos los DTOs de la API
                     var topAnimes = await _jikanService.GetTopAnimesAsync();
 
                     if (topAnimes != null && topAnimes.Any())
                     {
-                        int addedCount = 0;
-                        int updatedCount = 0;
-
                         using (var scope = _scopeFactory.CreateScope())
                         {
-                            var _animeRepository = scope.ServiceProvider.GetRequiredService<IAnimeRepository>();
+                            var animeService = scope.ServiceProvider.GetRequiredService<IAnimeService>();
 
                             foreach (var extAnime in topAnimes)
                             {
-                                var existing = await _animeRepository.GetAnimeByJikanIdAsync(extAnime.MalId);
-
-                                if (existing == null)
-                                {
-                                    bool isAdded = await _animeRepository.AddAnimeToDbAsync(extAnime);
-
-                                    if (isAdded)
-                                        addedCount++;
-                                }
-                                else
-                                {
-                                    bool isUpdated = await _animeRepository.UpdateAnimeAsync(extAnime);
-                                    if (isUpdated)
-                                        updatedCount++;                
-                                }
+                                await animeService.GetOrImportAnimeAsync(extAnime.MalId);
                             }
                         }
 
-                        _logger.LogInformation($"Top animes actualizados. Agregados: {addedCount}, Actualizados: {updatedCount}");
+                        _logger.LogInformation("Proceso de actualización de Top Animes finalizado.");
                     }
                 }
                 catch (Exception ex)

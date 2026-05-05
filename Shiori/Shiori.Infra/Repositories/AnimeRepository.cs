@@ -18,7 +18,7 @@ namespace Shiori.Infra.Repositories
             _logger = logger;
         }
 
-        // Tipo de DateTime a UTC para compatibilidad con postgre
+        // DateTime a UTC para compatibilidad con postgre
         private DateTime? ToUtc(DateTime? dt)
         {
             if (!dt.HasValue) return null;
@@ -68,40 +68,20 @@ namespace Shiori.Infra.Repositories
         }
 
         // Añadir un anime a la BD
-        public async Task<bool> AddAnimeToDbAsync(AnimeExternalDto anime)
+        public async Task<bool> AddAnimeToDbAsync(Anime anime)
         {
             try
             {
-                _logger.LogInformation("Intentando insertar nuevo anime en BD: {Title} (ID: {Id})", anime.Title, anime.MalId);
+                _logger.LogInformation("Insertando nuevo anime en BD: {Title} (JikanID: {Id})", anime.Title, anime.JikanId);
 
-                var bdAnime = new Anime
-                {
-                    JikanId = anime.MalId,
-                    Title = anime.Title,
-                    EnglishTitle = anime.TitleEnglish,
-                    ImageUrl = anime.Images?.Jpg?.ImageUrl,
-                    Synopsis = anime.Synopsis,
-                    Score = anime.Score ?? 0.0,
-                    Rank = anime.Rank,
-                    Popularity = anime.Popularity ?? 0,
-                    Episodes = anime.Episodes ?? 0,
-                    Status = anime.Status ?? "Unknown",
-                    Type = anime.Type ?? "Unknown",
-                    AiredFrom = ToUtc(anime.Aired?.From),
-                    AiredTo = ToUtc(anime.Aired?.To)
-                };
-
-                await _context.Animes.AddAsync(bdAnime);
+                await _context.Animes.AddAsync(anime);
                 var result = await _context.SaveChangesAsync();
-
-                if (result > 0)
-                    _logger.LogInformation("Anime '{Title}' insertado correctamente en la base de datos.", anime.Title);
 
                 return result > 0;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "DATABASE ERROR: No se pudo insertar el anime {Title} (JikanId: {Id})", anime.Title, anime.MalId);
+                _logger.LogError(ex, "DATABASE ERROR: No se pudo insertar el anime {Title}", anime.Title);
                 return false;
             }
         }
@@ -149,7 +129,7 @@ namespace Shiori.Infra.Repositories
         {
             try
             {
-                _logger.LogWarning("Iniciando eliminación física del anime con JikanId {Id}", jikanId);
+                _logger.LogWarning("Iniciando eliminación del anime con JikanId {Id}", jikanId);
 
                 var existingAnime = await _context.Animes.FirstOrDefaultAsync(a => a.JikanId == jikanId);
                 if (existingAnime == null)
@@ -176,7 +156,7 @@ namespace Shiori.Infra.Repositories
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "DATABASE ERROR: Error crítico al eliminar el anime con JikanId {Id}", jikanId);
+                _logger.LogError(ex, "DATABASE ERROR: Error al eliminar el anime con JikanId {Id}", jikanId);
                 return false;
             }
         }

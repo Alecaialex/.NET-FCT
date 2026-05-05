@@ -10,165 +10,142 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 
-namespace Shiori.API.Controllers
+[ApiController]
+[Route("api/auth")]
+public class AuthController : ControllerBase
 {
-    [ApiController]
-    [Route("api/auth")]
-    public class AuthController : ControllerBase
+    private static readonly Logger logger = LogManager.GetCurrentClassLogger();
+
+    private readonly UserManager<User> _userManager;
+    private readonly SignInManager<User> _signInManager;
+    private readonly IConfiguration _configuration;
+    private readonly IUserRepository _userRepository;
+
+    public AuthController(UserManager<User> userManager, SignInManager<User> signInManager, IConfiguration configuration, IUserRepository userRepository)
     {
-        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
+        _userManager = userManager;
+        _signInManager = signInManager;
+        _configuration = configuration;
+        _userRepository = userRepository;
+    }
 
-        private readonly UserManager<User> _userManager;
-        private readonly SignInManager<User> _signInManager;
-        private readonly IConfiguration _configuration;
-        private readonly IUserRepository _userRepository;
+    [HttpPost("register")]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(AuthResponseDto))]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<AuthResponseDto>> Register([FromBody] UserCredentialsDto userCredentials)
+    {
+        logger.Info("Intento de registro para el email: {0}", userCredentials.Email);
 
-        public AuthController(UserManager<User> userManager, SignInManager<User> signInManager, IConfiguration configuration, IUserRepository userRepository)
+        var user = new User
         {
-            _userManager = userManager;
-            _signInManager = signInManager;
-            _configuration = configuration;
-            _userRepository = userRepository;
+            UserName = userCredentials.Email,
+            Email = userCredentials.Email
+        };
+
+        var result = await _userManager.CreateAsync(user, userCredentials.Password!);
+
+        if (!result.Succeeded)
+        {
+            logger.Warn("Registro fallido para {0}. Errores: {1}",
+                userCredentials.Email,
+                string.Join(", ", result.Errors.Select(e => e.Description)));
+
+            return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
         }
 
-        // Registro de un nuevo usuario
-        [HttpPost("register")]
-        public async Task<ActionResult<AuthResponseDto>> Register([FromBody] UserCredentialsDto userCredentials)
+        logger.Info("Usuario registrado con éxito: {0}", userCredentials.Email);
+        return await BuildToken(userCredentials);
+    }
+
+    [HttpPost("login")]
+    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(AuthResponseDto))]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<AuthResponseDto>> Login([FromBody] UserCredentialsDto userCredentials)
+    {
+        logger.Info("Intento de login para: {0}", userCredentials.Email);
+
+        var user = await _userManager.FindByEmailAsync(userCredentials.Email);
+
+        if (user is null)
         {
-            logger.Info("Intento de registro para el email: {0}", userCredentials.Email);
+            logger.Warn("Login fallido: El email {0} no existe.", userCredentials.Email);
+            return Unauthorized(new { message = "Credenciales incorrectas." });
+        }
 
-            var user = new User
-            {
-                UserName = userCredentials.Email,
-                Email = userCredentials.Email
-            };
+        var result = await _signInManager.CheckPasswordSignInAsync(user, userCredentials.Password!, lockoutOnFailure: false);
 
-            var result = await _userManager.CreateAsync(user, userCredentials.Password!);
-
-            if (!result.Succeeded)
-            {
-                logger.Warn("Registro fallido para {0}. Errores: {1}",
-                    userCredentials.Email,
-                    string.Join(", ", result.Errors.Select(e => e.Description)));
-
-                foreach (var error in result.Errors)
-                {
-                    ModelState.AddModelError(error.Code, error.Description);
-                }
-
-                return ValidationProblem();
-            }
-
-            logger.Info("Usuario registrado con éxito: {0}", userCredentials.Email);
+        if (result.Succeeded)
+        {
+            logger.Info("Login exitoso para: {0}", userCredentials.Email);
             return await BuildToken(userCredentials);
         }
 
-        // Login de usuario
-        [HttpPost("login")]
-        public async Task<ActionResult<AuthResponseDto>> Login([FromBody] UserCredentialsDto userCredentials)
+        logger.Warn("Login fallido: Contraseña incorrecta para {0}.", userCredentials.Email);
+        return Unauthorized(new { message = "Credenciales incorrectas." });
+    }
+
+    // Nombre más descriptivo para la acción de Admin
+    [HttpPut("admin/updateUserRole")]
+    [Authorize(Policy = "admin")] // Usando la política que definimos antes
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateUserRole([FromBody] UpdateUserDto updateUserDto)
+    {
+        logger.Info("ADMIN ACTION: Actualizando rol de {0}", updateUserDto.Email);
+
+        var result = await _userRepository.UpdateUserAsync(updateUserDto);
+
+        if (!result)
         {
-            logger.Info("Intento de login para: {0}", userCredentials.Email);
-
-            var user = await _userManager.FindByEmailAsync(userCredentials.Email);
-
-            if (user is null)
-            {
-                logger.Warn("Login fallido: El email {0} no existe en BD.", userCredentials.Email);
-                return ReturnIncorrectLogin();
-            }
-
-            var result = await _signInManager.CheckPasswordSignInAsync(user, userCredentials.Password!, lockoutOnFailure: false);
-
-            if (result.Succeeded)
-            {
-                logger.Info("Login exitoso para el usuario: {0} (Rol: {1})", userCredentials.Email, user.Role);
-                return await BuildToken(userCredentials);
-            }
-            else
-            {
-                logger.Warn("Login fallido: Contraseña incorrecta para el usuario {0}.", userCredentials.Email);
-                return ReturnIncorrectLogin();
-            }
+            return NotFound(new { message = "No se encontró el usuario para actualizar." });
         }
 
-        // Actualizar los datos de un usuario (Solo Admin)
-        [HttpPut("update")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> UpdateUser([FromBody] UpdateUserDto updateUserDto)
+        return Ok(new { message = "Usuario actualizado exitosamente." });
+    }
+
+    [HttpDelete("admin/deleteUser/{email}")]
+    [Authorize(Policy = "admin")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteUser(string email)
+    {
+        logger.Info("ADMIN ACTION: Eliminando usuario {0}", email);
+
+        var result = await _userRepository.DeleteUserAsync(email);
+
+        if (!result)
         {
-            logger.Info("ADMIN ACTION: Intento de actualizar usuario {0}", updateUserDto.Email);
-
-            var result = await _userRepository.UpdateUserAsync(updateUserDto);
-
-            if (result)
-            {
-                logger.Info("Usuario {0} actualizado exitosamente por el administrador.", updateUserDto.Email);
-                return Ok(new { message = "Usuario actualizado exitosamente." });
-            }
-            else
-            {
-                logger.Warn("Fallo en la actualización del usuario {0}.", updateUserDto.Email);
-                return BadRequest(new { message = "No se pudo actualizar el usuario. Verifica que el email sea correcto." });
-            }
+            return NotFound(new { message = "No se pudo encontrar al usuario para eliminar." });
         }
 
-        // Eliminar un usuario (Solo Admin)
-        [HttpDelete("delete/{email}")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> DeleteUser(string email)
+        return Ok(new { message = $"El usuario {email} ha sido eliminado." });
+    }
+
+    private async Task<AuthResponseDto> BuildToken(UserCredentialsDto userCredentialsDto)
+    {
+        var user = await _userManager.FindByEmailAsync(userCredentialsDto.Email);
+
+        var claims = new List<Claim>
         {
-            logger.Info("ADMIN ACTION: Intento de eliminar usuario con email: {0}", email);
+            new Claim(ClaimTypes.Email, userCredentialsDto.Email),
+            new Claim(ClaimTypes.Role, user!.Role.ToString())
+        };
 
-            var result = await _userRepository.DeleteUserAsync(email);
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["llavejwt"]!));
+        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        var expiration = DateTime.UtcNow.AddHours(10);
 
-            if (result)
-            {
-                logger.Info("ADMIN ACTION SUCCESS: Usuario {0} eliminado correctamente.", email);
-                return Ok(new { message = $"El usuario {email} ha sido eliminado con éxito." });
-            }
-            else
-            {
-                logger.Warn("ADMIN ACTION FAIL: No se pudo eliminar al usuario {0}.", email);
-                return NotFound(new { message = "No se pudo encontrar al usuario o ocurrió un error al eliminar." });
-            }
-        }
+        var securityToken = new JwtSecurityToken(
+            issuer: null,
+            audience: null,
+            claims: claims,
+            expires: expiration,
+            signingCredentials: credentials);
 
-        // Construir el token
-        private async Task<AuthResponseDto> BuildToken(UserCredentialsDto userCredentialsDto)
+        return new AuthResponseDto
         {
-            logger.Debug("Generando JWT para {0}", userCredentialsDto.Email);
-
-            var user = await _userManager.FindByEmailAsync(userCredentialsDto.Email);
-
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.Email, userCredentialsDto.Email),
-                new Claim(ClaimTypes.Role, user!.Role.ToString())
-            };
-
-            var claimsdb = await _userManager.GetClaimsAsync(user!);
-            claims.AddRange(claimsdb);
-
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["llavejwt"]!));
-            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-            var expiration = DateTime.UtcNow.AddHours(10);
-            var securityToken = new JwtSecurityToken(issuer: null, audience: null, claims: claims, expires: expiration, signingCredentials: credentials);
-
-            var token = new JwtSecurityTokenHandler().WriteToken(securityToken);
-
-            logger.Debug("Token generado correctamente para {0}. Expira el: {1}", userCredentialsDto.Email, expiration);
-
-            return new AuthResponseDto
-            {
-                Token = token,
-                Expiration = expiration
-            };
-        }
-
-        private ActionResult ReturnIncorrectLogin()
-        {
-            ModelState.AddModelError(string.Empty, "Login incorrecto");
-            return ValidationProblem();
-        }
+            Token = new JwtSecurityTokenHandler().WriteToken(securityToken),
+            Expiration = expiration
+        };
     }
 }
