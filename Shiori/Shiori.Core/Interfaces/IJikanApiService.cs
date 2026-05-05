@@ -1,7 +1,4 @@
 ﻿using Shiori.Core.DTOs;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Shiori.Core.Interfaces
 {

@@ -1,0 +1,5 @@
+2026-05-04 12:46:46.1135 Info Registered target NLog.Targets.FileTarget(Name=errorFile)
+2026-05-04 12:46:46.1193 Info Registered target NLog.Targets.FileTarget(Name=allFile)
+2026-05-04 12:46:46.1193 Info Registered target NLog.Targets.ColoredConsoleTarget(Name=logconsole)
+2026-05-04 12:46:46.1193 Info NLog, Version=6.0.0.0, Culture=neutral, PublicKeyToken=5120e14c03d0593c. File version: 6.1.1.5033. Product version: 6.1.1+0e83056311dfcda0493d7db60b7191d0927eb5da. GlobalAssemblyCache: False
+2026-05-04 12:46:46.1489 Info Configuration initialized: TargetNames=allFile, logconsole, errorFile, ConfigItems=45, AutoReload=true, FilePath=C:\Users\AlejandroSanz\Source\repos\Shiori\Shiori.API\nlog.config

@@ -7,105 +7,151 @@ using Shiori.Infra.Repositories;
 using Shiori.Infra.Services;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using Shiori.Infra.BackgroundServices;
+using Shiori.Infra.Workers;
 using NSwag;
 using NSwag.Generation.Processors.Security;
+using Shiori.Core.Configurations;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using NLog;
+using NLog.Web;
 
-var builder = WebApplication.CreateBuilder(args);
+// Configuración inicial de Nlog
+var logger = NLog.Web.NLogBuilder.ConfigureNLog("nlog.config").GetCurrentClassLogger();
 
-// String y conexión a BD postgre
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-builder.Services.AddDbContext<AppDbContext>(options =>
+try
 {
-    options.UseNpgsql(connectionString);
-});
+    logger.Info("Iniciando aplicación");
+    var builder = WebApplication.CreateBuilder(args);
 
-// Identity core
-builder.Services.AddIdentityCore<User>()
-    .AddEntityFrameworkStores<AppDbContext>()
-    .AddDefaultTokenProviders();
+    // Configuración de NLog
+    builder.Logging.ClearProviders();
+    builder.Host.UseNLog();
 
-builder.Services.AddScoped<UserManager<User>>();
-builder.Services.AddScoped<SignInManager<User>>();
-builder.Services.AddDataProtection();
-builder.Services.AddHttpContextAccessor();
 
-// Cliente HTTP para Jikan
-builder.Services.AddHttpClient<IJikanApiService, JikanApiService>(client =>
-{
-    client.BaseAddress = new Uri("https://api.jikan.moe/v4/");
-});
+    // AppConfig
+    var appConfig = new AppConfig();
+    builder.Configuration.Bind(appConfig);
+    builder.Services.AddSingleton(appConfig);
 
-// Inyección de Dependencias
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddScoped<IAnimeRepository, AnimeRepository>();
-builder.Services.AddScoped<IUserAnimeRepository, UserAnimeRepository>();
-
-// Background Service
-builder.Services.AddHostedService<TopAnimeUpdateService>();
-
-// Autenticación JWT
-builder.Services.AddAuthentication().AddJwtBearer(options =>
-{
-    options.MapInboundClaims = false;
-    options.TokenValidationParameters = new TokenValidationParameters
+    // Conexión a BD PostgreSQL
+    builder.Services.AddDbContext<AppDbContext>(options =>
     {
-        ValidateIssuer = false,
-        ValidateAudience = false,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["llavejwt"]!)),
-        ClockSkew = TimeSpan.Zero
-    };
-});
-
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("admin", policy => policy.RequireClaim("role", "Admin"));
-});
-
-// NSwag config
-builder.Services.AddOpenApiDocument(config =>
-{
-    config.PostProcess = document =>
-    {
-        document.Info.Version = "v1";
-        document.Info.Title = "Shiori API";
-        document.Info.Description = "API para la aplicación de seguimiento de anime";
-    };
-
-    // Configuración para poder usar el Token JWT en la interfaz de Swagger
-    config.AddSecurity("Bearer", Enumerable.Empty<string>(), new OpenApiSecurityScheme
-    {
-        Type = OpenApiSecuritySchemeType.ApiKey,
-        Name = "Authorization",
-        In = OpenApiSecurityApiKeyLocation.Header,
-        Description = "Escribe: Bearer {tu_token}"
+        options.UseNpgsql(appConfig.ConnectionString);
     });
 
-    config.OperationProcessors.Add(new AspNetCoreOperationSecurityScopeProcessor("Bearer"));
-});
+    // Identity core
+    builder.Services.AddIdentityCore<User>()
+        .AddEntityFrameworkStores<AppDbContext>()
+        .AddDefaultTokenProviders();
 
-// Exception handler global
-builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
-builder.Services.AddProblemDetails();
+    builder.Services.AddScoped<UserManager<User>>();
+    builder.Services.AddScoped<SignInManager<User>>();
+    builder.Services.AddDataProtection();
+    builder.Services.AddHttpContextAccessor();
 
-builder.Services.AddControllers();
+    // Cliente HTTP para Jikan
+    builder.Services.AddHttpClient("JikanClient", client =>
+    {
+        client.BaseAddress = new Uri("https://api.jikan.moe/v4/");
+    });
 
-var app = builder.Build();
+    // Inyección de Dependencias
+    builder.Services.AddScoped<IUserRepository, UserRepository>();
+    builder.Services.AddScoped<IAnimeRepository, AnimeRepository>();
+    builder.Services.AddScoped<IUserAnimeRepository, UserAnimeRepository>();
+    builder.Services.AddSingleton<IJikanApiService, JikanApiService>();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseOpenApi();
-    app.UseSwaggerUi();
+    // Background Service
+    builder.Services.AddHostedService<TopAnimeUpdateService>();
+
+    // Autenticación JWT
+    builder.Services.AddAuthentication().AddJwtBearer(options =>
+    {
+        options.MapInboundClaims = false;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(appConfig.LlaveJwt)),
+            ClockSkew = TimeSpan.Zero,
+            RoleClaimType = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+        };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnForbidden = context =>
+            {
+                context.Response.StatusCode = 403;
+                context.Response.ContentType = "application/json";
+                var result = System.Text.Json.JsonSerializer.Serialize(new { message = "Acceso denegado: No tienes permisos de administrador." });
+                return context.Response.WriteAsync(result);
+            },
+            OnChallenge = context =>
+            {
+                context.HandleResponse();
+                context.Response.StatusCode = 401;
+                context.Response.ContentType = "application/json";
+                var result = System.Text.Json.JsonSerializer.Serialize(new { message = "No autorizado: Debes iniciar sesión." });
+                return context.Response.WriteAsync(result);
+            }
+        };
+    });
+
+    // Servicio de autorización y política para admin
+    builder.Services.AddAuthorization(options =>
+    {
+        options.AddPolicy("admin", policy => policy.RequireClaim("role", "Admin"));
+    });
+
+    // NSwag config
+    builder.Services.AddOpenApiDocument(config =>
+    {
+        config.PostProcess = document =>
+        {
+            document.Info.Version = "v1";
+            document.Info.Title = "Shiori API";
+        };
+        config.AddSecurity("Bearer", Enumerable.Empty<string>(), new OpenApiSecurityScheme
+        {
+            Type = OpenApiSecuritySchemeType.ApiKey,
+            Name = "Authorization",
+            In = OpenApiSecurityApiKeyLocation.Header,
+            Description = "Escribe: Bearer {tu_token}"
+        });
+        config.OperationProcessors.Add(new AspNetCoreOperationSecurityScopeProcessor("Bearer"));
+    });
+
+    builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+    builder.Services.AddProblemDetails();
+    builder.Services.AddControllers();
+
+    var app = builder.Build();
+
+
+    if (app.Environment.IsDevelopment())
+    {
+        app.UseOpenApi();
+        app.UseSwaggerUi();
+    }
+
+    app.UseExceptionHandler();
+    app.UseHttpsRedirection();
+    app.UseAuthentication();
+    app.UseAuthorization();
+    app.MapControllers();
+
+    app.Run();
 }
-
-app.UseExceptionHandler();
-app.UseHttpsRedirection();
-
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.MapControllers();
-
-app.Run();
+catch (Exception ex)
+{
+    // Captura de errores fatales
+    logger.Fatal(ex, "La aplicación terminó inesperadamente");
+    throw;
+}
+finally
+{
+    // Cierre de NLog
+    NLog.LogManager.Shutdown();
+}

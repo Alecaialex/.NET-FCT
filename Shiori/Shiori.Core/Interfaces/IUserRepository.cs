@@ -1,16 +1,26 @@
-﻿using Shiori.Core.Entities;
+﻿using Shiori.Core.DTOs;
+using Shiori.Core.Entities;
+using System;
+using System.Threading.Tasks;
 
 namespace Shiori.Core.Interfaces
 {
     public interface IUserRepository
     {
-        Task<User?> GetUserByIdAsync(Guid id);
+
+        // Obtener usuario por email
         Task<User?> GetUserByEmailAsync(string email);
+
+        // Crear usuario
         Task<bool> CreateUserAsync(User user);
-        Task<bool> UpdateUserAsync(User user);
-        Task<IEnumerable<UserAnime>> GetUserAnimesAsync(Guid userId);
-        Task<UserAnime?> GetUserAnimeByJikanIdAsync(Guid userid, int jikanId);
-        Task<UserAnime> CreateOrUpdateUserAnimeAsync(UserAnime userAnime);
+
+        // Actualizar usuario
+        Task<bool> UpdateUserAsync(UpdateUserDto updateUserDto);
+
+        // Obtener el usuario actual mediante el email en el token
         Task<User?> GetCurrentUser();
+
+        //Eliminar un usuario (Admin)
+        Task<bool> DeleteUserAsync(string email);
     }
 }

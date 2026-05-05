@@ -1,8 +1,7 @@
 ﻿using Shiori.Core.DTOs;
 using Shiori.Core.Entities;
-using System;
 using System.Collections.Generic;
-using System.Text;
+using System.Threading.Tasks;
 
 namespace Shiori.Core.Interfaces
 {

@@ -1,11 +1,16 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Shiori.Core.DTOs;
 using Shiori.Core.Entities;
 using Shiori.Core.Interfaces;
 using Shiori.Infra.Data;
-using System.Runtime.CompilerServices;
+using System;
+using System.Linq;
 using System.Security.Claims;
+using System.Threading.Tasks;
 
 namespace Shiori.Infra.Repositories
 {
@@ -14,117 +19,153 @@ namespace Shiori.Infra.Repositories
         private readonly AppDbContext _context;
         private readonly UserManager<User> _userManager;
         private readonly IHttpContextAccessor _contextAccessor;
+        private readonly ILogger<UserRepository> _logger;
 
-        public UserRepository(AppDbContext context, UserManager<User> userManager, IHttpContextAccessor contextAccessor)
+        public UserRepository(AppDbContext context, UserManager<User> userManager, IHttpContextAccessor contextAccessor, ILogger<UserRepository> logger)
         {
             _context = context;
             _userManager = userManager;
             _contextAccessor = contextAccessor;
+            _logger = logger;
         }
 
-        // Crear usuario
+        // Crear un nuevo usuario
         public async Task<bool> CreateUserAsync(User user)
         {
-            // Añadir el usuario a BD
-            var result = await _userManager.CreateAsync(user);
-            return result.Succeeded;
-        }
-
-        // Actualizar usuario
-        public async Task<bool> UpdateUserAsync(User user)
-        {
-            // Sacar usuario actual de la BD, si no existe se devuelve false
-            var existingUser = await _context.Users.FindAsync(user.Id);
-            if (existingUser == null)
+            try
             {
+                _logger.LogInformation("Intentando crear nuevo usuario: {Email}", user.Email);
+                var result = await _userManager.CreateAsync(user);
+
+                if (result.Succeeded)
+                {
+                    _logger.LogInformation("Usuario {Email} creado exitosamente.", user.Email);
+                }
+                else
+                {
+                    _logger.LogWarning("Fallo al crear usuario {Email}. Errores: {Errors}",
+                        user.Email, string.Join(", ", result.Errors.Select(e => e.Description)));
+                }
+
+                return result.Succeeded;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "DATABASE ERROR: Error crítico al crear usuario {Email}", user.Email);
                 return false;
             }
-
-            // Actualizar los datos del usuario
-            existingUser.Email = user.Email;
-            existingUser.Role = user.Role;
-
-            return await _context.SaveChangesAsync() > 0;
         }
 
-        // Obtener usuario por email
+        // Actualizar los datos de un usuario (Rol)
+        public async Task<bool> UpdateUserAsync(UpdateUserDto updateUserDto)
+        {
+            try
+            {
+                _logger.LogInformation("Iniciando cambio de rol para el usuario: {Email}", updateUserDto.Email);
+
+                var existingUser = await _userManager.FindByEmailAsync(updateUserDto.Email);
+
+                if (existingUser == null)
+                {
+                    _logger.LogWarning("No se pudo actualizar: Usuario con email {Email} no encontrado.", updateUserDto.Email);
+                    return false;
+                }
+
+                _logger.LogInformation("Cambiando rol de {OldRole} a {NewRole} para {Email}.",
+                    existingUser.Role, updateUserDto.Role, updateUserDto.Email);
+
+                // Actualizar el rol
+                existingUser.Role = updateUserDto.Role;
+
+                var result = await _userManager.UpdateAsync(existingUser);
+
+                if (result.Succeeded)
+                {
+                    _logger.LogInformation("Rol de {Email} actualizado correctamente en la base de datos.", updateUserDto.Email);
+                    return true;
+                }
+                else
+                {
+
+                    _logger.LogWarning("Fallo al actualizar la entidad User para {Email}. Errores: {Errors}",
+                        updateUserDto.Email, string.Join(", ", result.Errors.Select(e => e.Description)));
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "DATABASE ERROR: Error crítico al intentar actualizar el rol de {Email}", updateUserDto.Email);
+                return false;
+            }
+        }
+
+        // Obtener un usuario por su email
         public async Task<User?> GetUserByEmailAsync(string email)
         {
-            // Devolver el usuario si se encuentra el email
-            return await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
-        }
-
-        // Obtener usuario por ID
-        public async Task<User?> GetUserByIdAsync(Guid id)
-        {
-            // Devolver el usuario si se encuentra el ID
-            return await _context.Users.FindAsync(id);
-        }
-
-        // Obtener animes en la lista del usuario
-        public async Task<IEnumerable<UserAnime>> GetUserAnimesAsync(Guid userId)
-        {
-            // Buscar en UserAnimes los que tengan ese ID de usuario
-            // y devolverlos en una lista, incluyendo detalles del anime
-            return await _context.UserAnimes
-                                 .Include(ua => ua.Anime)
-                                 .Where(ua => ua.UserId == userId)
-                                 .ToListAsync();
-        }
-
-        // Obtener UserAnime mediante la ID de Jikan
-        public async Task<UserAnime?> GetUserAnimeByJikanIdAsync(Guid userid, int jikanId)
-        {
-            // Buscar el anime indicado, si no existe devolver null
-            var anime = await _context.Animes
-                                      .FirstOrDefaultAsync(a => a.JikanId == jikanId);
-
-            if (anime == null)
+            try
             {
+                _logger.LogDebug("Buscando usuario en BD por email: {Email}", email);
+                return await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "DATABASE ERROR: Error al buscar usuario por email {Email}", email);
                 return null;
             }
-
-            // Devolver el UserAnime que coincide con el anime y el user id indicados
-            return await _context.UserAnimes
-                                 .FirstOrDefaultAsync(ua => ua.UserId == userid
-                                                         && ua.AnimeId == anime.JikanId);
         }
 
-        // Crear un nuevo UserAnime
-        public async Task<UserAnime> CreateOrUpdateUserAnimeAsync(UserAnime userAnime)
+        // Eliminar un usuario por su email (Admin)
+        public async Task<bool> DeleteUserAsync(string email)
         {
-            // Buscamos si ya existe esa relación UserAnime
-            var existing = await _context.UserAnimes.FindAsync(userAnime.Id);
-
-            // Si existe, modificamos los datos a los indicados
-            if (existing != null)
+            try
             {
-                existing.Status = userAnime.Status;
-                existing.Score = userAnime.Score;
-                existing.Progress = userAnime.Progress;
-                existing.StartDate = userAnime.StartDate ?? DateTime.UtcNow;
-            }
+                var user = await _userManager.FindByEmailAsync(email);
+                if (user == null)
+                {
+                    _logger.LogWarning("Intento de eliminar usuario inexistente: {Email}", email);
+                    return false;
+                }
 
-            // Si no existe, lo creamos
-            else
+                _logger.LogInformation("Eliminando usuario: {Email}", email);
+                var result = await _userManager.DeleteAsync(user);
+                return result.Succeeded;
+            }
+            catch (Exception ex)
             {
-                _context.UserAnimes.Add(userAnime);
+                _logger.LogError(ex, "Error al eliminar el usuario {Email}", email);
+                return false;
             }
-
-            await _context.SaveChangesAsync();
-            return userAnime;
         }
 
-        // Obtener el usuario actual mediante el email en el token
+        // Obtener el usuario actual
         public async Task<User?> GetCurrentUser()
         {
-            var emailClaim = _contextAccessor.HttpContext?.User.Claims.Where(c => c.Type == "email").FirstOrDefault();
-            if (emailClaim == null)
+            try
             {
+                _logger.LogDebug("Extrayendo usuario actual desde el HttpContext.");
+
+                var emailClaim = _contextAccessor.HttpContext?.User.Claims
+                    .FirstOrDefault(c => c.Type == "email" || c.Type == ClaimTypes.Email);
+
+                if (emailClaim == null)
+                {
+                    _logger.LogWarning("No se encontró el claim de email en el token.");
+                    return null;
+                }
+
+                _logger.LogDebug("Buscando datos completos del usuario para el email: {Email}", emailClaim.Value);
+                var user = await _userManager.FindByEmailAsync(emailClaim.Value);
+
+                if (user == null)
+                    _logger.LogWarning("El email del token ({Email}) no corresponde a ningún usuario en la BD.", emailClaim.Value);
+
+                return user;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "SECURITY ERROR: Error al intentar recuperar el usuario.");
                 return null;
             }
-
-            return await _userManager.FindByEmailAsync(emailClaim.Value);
         }
     }
 }
