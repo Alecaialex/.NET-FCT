@@ -12,7 +12,6 @@ namespace Shiori.Infra.Repositories
     {
         private readonly AppDbContext _context;
 
-        // Definimos el logger de NLog para esta clase
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
         public UserAnimeRepository(AppDbContext context)

@@ -12,7 +12,6 @@ namespace Shiori.API.Controllers
     [Authorize]
     public class UserController : ControllerBase
     {
-        // Definimos el logger de NLog
         private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
         private readonly IUserRepository _userRepository;

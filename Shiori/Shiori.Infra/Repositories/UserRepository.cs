@@ -56,7 +56,7 @@ namespace Shiori.Infra.Repositories
             }
         }
 
-        // Actualizar los datos de un usuario (Rol)
+        // Actualizar los datos de un usuario
         public async Task<bool> UpdateUserAsync(UpdateUserDto updateUserDto)
         {
             try

@@ -4,6 +4,7 @@ using System.Text;
 
 namespace Shiori.Core.DTOs
 {
+    // DTO para estadísticas de usuario
     public class UserStatsDto
     {
         public int TotalAnimes { get; set; }

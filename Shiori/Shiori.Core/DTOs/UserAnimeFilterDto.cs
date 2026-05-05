@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Shiori.Core.DTOs
 {
+    // DTO para filtrar la lista de anime del usuario
     public class UserAnimeFilterDto
     {
         public UserAnimeStatus? Status { get; set; }

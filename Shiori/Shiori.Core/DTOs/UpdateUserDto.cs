@@ -6,6 +6,7 @@ using System.Text;
 
 namespace Shiori.Core.DTOs
 {
+    // DTO para actualización de usuario
     public class UpdateUserDto
     {
         [Required]
