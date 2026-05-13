@@ -1,0 +1,31 @@
+﻿@page "/generos/crear"
+@rendermode InteractiveServer
+@inject IJSRuntime JS
+@inject NavigationManager navigationManager
+
+<h3>Crear Género</h3>
+
+<FormularioGenero FormularioEnviadoConExito="formularioEnviadoConExito", EnvioEnCurso="envioEnCurso"
+ OnValidSubmit="Crear" Genero="genero"/>
+
+@code {
+    private Genero genero = null!;
+    private bool envioEnCurso = false;
+    private bool formularioEnviadoConExito = false;
+
+    protected override void OnInitialized()
+    {
+        genero = new Genero();
+    }
+
+    private async Task Crear()
+    {
+        envioEnCurso = true;
+        Console.WriteLine($"Creando el género: {genero.Nombre}");
+        await Task.Delay(2000);
+        envioEnCurso = false;
+        formularioEnviadoConExito = true;
+        StateHasChanged();
+        navigationManager.NavigateTo("/generos");
+    }
+}

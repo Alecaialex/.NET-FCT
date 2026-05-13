@@ -1,0 +1,42 @@
+﻿@page "/actores/editar/{Id:int}"
+@inject NavigationManager navigationManager
+
+<h3>Editar Actor</h3>
+
+@if (actor is null)
+{
+    <Cargando />
+}
+else
+{
+    <FormularioActor FormularioEnviadoConExito="formularioEnviadoConExito" EnvioEnCurso="envioEnCurso"
+        FormularioInvalido="false" OnValidSubmit="Editar" Actor="actor"/>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private Genero genero = null!;
+    private bool formularioEnviadoConExito = false;
+    private bool envioEnCurso = false;
+    private Actor actor = null!;
+
+    protected override void OnInitialized()
+    {
+        actor = new() { Id = Id, Nombre = "Alex", 
+                        FechaNacimiento = new DateTime(2006, 05, 28), 
+            FotoUrl = "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Tom_Holland_during_pro-am_Wentworth_golf_club_2023-2.jpg/960px-Tom_Holland_during_pro-am_Wentworth_golf_club_2023-2.jpg"
+        };
+    }
+
+    private async Task Editar()
+    {
+        envioEnCurso = true;
+        Console.WriteLine($"Editando el actor: {actor.Nombre}");
+        Console.WriteLine($"Fecha del actor: {actor.FechaNacimiento}");
+        await Task.Delay(2000);
+        envioEnCurso = false;
+        formularioEnviadoConExito = true;
+        StateHasChanged();
+        navigationManager.NavigateTo("/actores");
+    }
+}

@@ -11,6 +11,6 @@ namespace Shiori.Core.Interfaces
         Task<AnimeExternalDto?> GetAnimeByJikanIdAsync(int jikanId);
 
         // Buscar anime por nombre
-        Task<IEnumerable<AnimeExternalDto>> SearchAnimesAsync(string query);
+        Task<IEnumerable<AnimeExternalDto>> SearchAnimesAsync(string animeName);
     }
 }

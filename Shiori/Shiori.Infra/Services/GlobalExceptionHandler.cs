@@ -12,7 +12,6 @@ namespace Shiori.Infra.Services
         // Manejo general de excepciones en toda la API
         public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
         {
-            // Añadimos los detalles del problema
             var problemDetails = new ProblemDetails
             {
                 Status = StatusCodes.Status500InternalServerError,
@@ -20,10 +19,8 @@ namespace Shiori.Infra.Services
                 Detail = exception.Message
             };
 
-            // Añadir el status code
             httpContext.Response.StatusCode = problemDetails.Status.Value;
 
-            // Escribir la respuesta en formato JSON
             await httpContext.Response.WriteAsJsonAsync(problemDetails, cancellationToken);
 
             return true;

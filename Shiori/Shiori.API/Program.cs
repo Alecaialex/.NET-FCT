@@ -12,9 +12,7 @@ using NSwag;
 using NSwag.Generation.Processors.Security;
 using Shiori.Core.Configurations;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using NLog;
 using NLog.Web;
-using System.Security.Claims;
 
 // Nlog
 var logger = NLog.Web.NLogBuilder.ConfigureNLog("nlog.config").GetCurrentClassLogger();
@@ -61,6 +59,7 @@ try
     builder.Services.AddScoped<IAnimeRepository, AnimeRepository>();
     builder.Services.AddScoped<IUserAnimeRepository, UserAnimeRepository>();
     builder.Services.AddScoped<IAnimeService, AnimeService>();
+    builder.Services.AddScoped<ITokenService, TokenService>();
     builder.Services.AddSingleton<IJikanApiService, JikanApiService>();
 
     // Background Service
@@ -78,7 +77,7 @@ try
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(appConfig.JwtKey)),
             ClockSkew = TimeSpan.Zero,
-            RoleClaimType = "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"
+            RoleClaimType = "role"
         };
 
         options.Events = new JwtBearerEvents
@@ -104,7 +103,7 @@ try
     // Servicio de autorización y política para admin
     builder.Services.AddAuthorization(options =>
     {
-        options.AddPolicy("admin", policy => policy.RequireClaim(ClaimTypes.Role, "Admin"));
+        options.AddPolicy("admin", policy => policy.RequireClaim("role", "Admin"));
     });
 
     // NSwag config

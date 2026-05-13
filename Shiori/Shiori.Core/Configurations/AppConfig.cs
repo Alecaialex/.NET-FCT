@@ -12,15 +12,12 @@ namespace Shiori.Core.Configurations
 
         public AppConfig(IConfiguration config)
         {
-            // 1. Primero guardamos la configuración
-            _config = config ?? throw new ArgumentNullException(nameof(config));
+            _config = config;
 
-            // 2. Ahora ya podemos usar _config porque ya no es null
             JwtKey = _config["LlaveJwt"] ?? throw new Exception("Falta LlaveJwt");
             ConnectionString = _config["ConnectionString"] ?? throw new Exception("Falta ConnectionString");
 
-            // 3. Parseo directo del entero
-            UpdateIntervalHours = int.Parse(_config["UpdateIntervalHours"]!);
+            UpdateIntervalHours = int.Parse(_config["UpdateIntervalHours"] ?? "1");
         }
     }
 }

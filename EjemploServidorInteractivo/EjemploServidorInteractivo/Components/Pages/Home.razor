@@ -1,0 +1,22 @@
+﻿@page "/"
+@rendermode InteractiveServer
+
+<PageTitle>Home</PageTitle>
+
+<h1>Hello, world!</h1>
+
+Welcome to your new app.
+
+<hr />
+
+<p>Mensaje: @mensaje</p>
+<button @onclick="cambiarMensaje">Cambiar mensaje</button>
+
+@code {
+    string mensaje = "Hola mundo";
+
+    void cambiarMensaje()
+    {
+        mensaje = "cambiado";
+    }
+}

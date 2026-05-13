@@ -1,0 +1,14 @@
+﻿@page "/peliculas/crear"
+@inject NavigationManager navigationManager
+@rendermode InteractiveServer
+
+<h3>CrearPelicula</h3>
+
+<BPBoton onClick="Crear">Crear película</BPBoton>
+
+@code {
+    void Crear()
+    {
+        navigationManager.NavigateTo("/peliculas");
+    }
+}

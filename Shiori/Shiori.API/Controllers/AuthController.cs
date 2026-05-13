@@ -1,151 +1,118 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
 using NLog;
 using Shiori.Core.DTOs;
 using Shiori.Core.Entities;
 using Shiori.Core.Interfaces;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 
-[ApiController]
-[Route("api/auth")]
-public class AuthController : ControllerBase
+namespace Shiori.Api.Controllers
 {
-    private static readonly Logger logger = LogManager.GetCurrentClassLogger();
-
-    private readonly UserManager<User> _userManager;
-    private readonly SignInManager<User> _signInManager;
-    private readonly IConfiguration _configuration;
-    private readonly IUserRepository _userRepository;
-
-    public AuthController(UserManager<User> userManager, SignInManager<User> signInManager, IConfiguration configuration, IUserRepository userRepository)
+    [ApiController]
+    [Route("api/auth")]
+    public class AuthController : ControllerBase
     {
-        _userManager = userManager;
-        _signInManager = signInManager;
-        _configuration = configuration;
-        _userRepository = userRepository;
-    }
+        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
-    [HttpPost("register")]
-    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(AuthResponseDto))]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<ActionResult<AuthResponseDto>> Register([FromBody] UserCredentialsDto userCredentials)
-    {
-        logger.Info("Intento de registro para el email: {0}", userCredentials.Email);
+        private readonly UserManager<User> _userManager;
+        private readonly SignInManager<User> _signInManager;
+        private readonly IUserRepository _userRepository;
+        private readonly ITokenService _tokenService;
 
-        var user = new User
+        public AuthController(
+            UserManager<User> userManager,
+            SignInManager<User> signInManager,
+            IUserRepository userRepository,
+            ITokenService tokenService)
         {
-            UserName = userCredentials.Email,
-            Email = userCredentials.Email
-        };
-
-        var result = await _userManager.CreateAsync(user, userCredentials.Password!);
-
-        if (!result.Succeeded)
-        {
-            logger.Warn("Registro fallido para {0}. Errores: {1}",
-                userCredentials.Email,
-                string.Join(", ", result.Errors.Select(e => e.Description)));
-
-            return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
+            _userManager = userManager;
+            _signInManager = signInManager;
+            _userRepository = userRepository;
+            _tokenService = tokenService;
         }
 
-        logger.Info("Usuario registrado con éxito: {0}", userCredentials.Email);
-        return await BuildToken(userCredentials);
-    }
-
-    [HttpPost("login")]
-    [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(AuthResponseDto))]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<ActionResult<AuthResponseDto>> Login([FromBody] UserCredentialsDto userCredentials)
-    {
-        logger.Info("Intento de login para: {0}", userCredentials.Email);
-
-        var user = await _userManager.FindByEmailAsync(userCredentials.Email);
-
-        if (user is null)
+        // Registro de nuevo usuario
+        [HttpPost("register")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(AuthResponseDto))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<AuthResponseDto>> Register([FromBody] UserCredentialsDto userCredentials)
         {
-            logger.Warn("Login fallido: El email {0} no existe.", userCredentials.Email);
-            return Unauthorized(new { message = "Credenciales incorrectas." });
+            var user = new User
+            {
+                UserName = userCredentials.Email,
+                Email = userCredentials.Email
+            };
+
+            var result = await _userManager.CreateAsync(user, userCredentials.Password!);
+
+            if (!result.Succeeded)
+                return BadRequest(new { errors = result.Errors.Select(e => e.Description) });
+
+            return Ok(_tokenService.CreateToken(user));
         }
 
-        var result = await _signInManager.CheckPasswordSignInAsync(user, userCredentials.Password!, lockoutOnFailure: false);
-
-        if (result.Succeeded)
+        // Login de usuario
+        [HttpPost("login")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(AuthResponseDto))]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<ActionResult<AuthResponseDto>> Login([FromBody] UserCredentialsDto userCredentials)
         {
-            logger.Info("Login exitoso para: {0}", userCredentials.Email);
-            return await BuildToken(userCredentials);
+            var user = await _userManager.FindByEmailAsync(userCredentials.Email!);
+
+            if (user is null)
+            {
+                logger.Warn("Login fallido: El email {0} no existe", userCredentials.Email);
+                return Unauthorized(new { message = "Credenciales incorrectas" });
+            }
+
+            var result = await _signInManager.CheckPasswordSignInAsync(user, userCredentials.Password!, lockoutOnFailure: false);
+
+            if (result.Succeeded)
+            {
+                logger.Info("Login exitoso para: {0}", userCredentials.Email);
+                return Ok(_tokenService.CreateToken(user));
+            }
+
+            logger.Warn("Login fallido: Contraseña incorrecta para {0}", userCredentials.Email);
+            return Unauthorized(new { message = "Credenciales incorrectas" });
         }
 
-        logger.Warn("Login fallido: Contraseña incorrecta para {0}.", userCredentials.Email);
-        return Unauthorized(new { message = "Credenciales incorrectas." });
-    }
-
-    // Nombre más descriptivo para la acción de Admin
-    [HttpPut("admin/updateUserRole")]
-    [Authorize(Policy = "admin")] // Usando la política que definimos antes
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> UpdateUserRole([FromBody] UpdateUserDto updateUserDto)
-    {
-        logger.Info("ADMIN ACTION: Actualizando rol de {0}", updateUserDto.Email);
-
-        var result = await _userRepository.UpdateUserAsync(updateUserDto);
-
-        if (!result)
+        // Actualizar rol de un usuario (Admin)
+        [HttpPut("admin/updateUserRole")]
+        [Authorize(Policy = "admin")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateUserRole([FromBody] UpdateUserDto updateUserDto)
         {
-            return NotFound(new { message = "No se encontró el usuario para actualizar." });
+            var result = await _userRepository.UpdateUserAsync(updateUserDto);
+
+            if (!result)
+            {
+                logger.Warn("No se ha encontrado el usuario para actualizar: {0}", updateUserDto.Email);
+                return NotFound(new { message = "No se encontró el usuario para actualizar" });
+            }
+
+            logger.Info("Actualizado el rol del usuario {0} a {1}", updateUserDto.Email, updateUserDto.Role);
+            return Ok(new { message = "Usuario actualizado exitosamente." });
         }
 
-        return Ok(new { message = "Usuario actualizado exitosamente." });
-    }
-
-    [HttpDelete("admin/deleteUser/{email}")]
-    [Authorize(Policy = "admin")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> DeleteUser(string email)
-    {
-        logger.Info("ADMIN ACTION: Eliminando usuario {0}", email);
-
-        var result = await _userRepository.DeleteUserAsync(email);
-
-        if (!result)
+        // Eliminar un usuario (Admin)
+        [HttpDelete("admin/deleteUser/{email}")]
+        [Authorize(Policy = "admin")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> DeleteUser(string email)
         {
-            return NotFound(new { message = "No se pudo encontrar al usuario para eliminar." });
+            var result = await _userRepository.DeleteUserAsync(email);
+
+            if (!result)
+            {
+                logger.Warn("No se ha encontrado el usuario para eliminar: {0}", email);
+                return NotFound(new { message = "No se pudo encontrar al usuario para eliminar" });
+            }
+
+            logger.Warn("Usuario eliminado: {0}", email);
+            return Ok(new { message = $"El usuario {email} ha sido eliminado." });
         }
-
-        return Ok(new { message = $"El usuario {email} ha sido eliminado." });
-    }
-
-    private async Task<AuthResponseDto> BuildToken(UserCredentialsDto userCredentialsDto)
-    {
-        var user = await _userManager.FindByEmailAsync(userCredentialsDto.Email);
-
-        var claims = new List<Claim>
-        {
-            new Claim(ClaimTypes.Email, userCredentialsDto.Email),
-            new Claim(ClaimTypes.Role, user!.Role.ToString())
-        };
-
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["llavejwt"]!));
-        var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-        var expiration = DateTime.UtcNow.AddHours(10);
-
-        var securityToken = new JwtSecurityToken(
-            issuer: null,
-            audience: null,
-            claims: claims,
-            expires: expiration,
-            signingCredentials: credentials);
-
-        return new AuthResponseDto
-        {
-            Token = new JwtSecurityTokenHandler().WriteToken(securityToken),
-            Expiration = expiration
-        };
     }
 }

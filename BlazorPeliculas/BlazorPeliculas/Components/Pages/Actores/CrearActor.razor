@@ -1,0 +1,30 @@
+﻿@page "/actores/crear"
+@inject NavigationManager navigationManager
+
+<h3>Crear Actor</h3>
+
+<FormularioActor FormularioEnviadoConExito="formularioEnviadoConExito" EnvioEnCurso="envioEnCurso"
+    OnValidSubmit="Crear" Actor="actor"/>
+
+@code {
+    private bool formularioEnviadoConExito = false;
+    private bool envioEnCurso = false;
+    private Actor actor = null!;
+
+    protected override void OnInitialized()
+    {
+        actor = new();
+    }
+
+    private async Task Crear()
+    {
+        envioEnCurso = true;
+        Console.WriteLine($"Creando el actor: {actor.Nombre}");
+        Console.WriteLine($"Fecha del actor: {actor.FechaNacimiento}");
+        await Task.Delay(2000);
+        envioEnCurso = false;
+        formularioEnviadoConExito = true;
+        StateHasChanged();
+        navigationManager.NavigateTo("/actores");
+    }
+}

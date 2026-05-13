@@ -17,59 +17,33 @@ namespace Shiori.Infra.Services
             _jikanApi = jikanApi;
         }
 
-        /// <summary>
-        /// Busca un anime en la BD local; si no existe, lo importa de Jikan, lo guarda y lo devuelve.
-        /// Garantiza que el retorno sea siempre la entidad local 'Anime'.
-        /// </summary>
-        public async Task<Anime> GetOrImportAnimeAsync(int jikanId)
+        // Obtener anime de la BD, si no existe, obtener desde Jikan
+        public async Task<Anime?> GetOrImportAnimeAsync(int jikanId)
         {
-            // 1. Intentar buscar en BD local
             var localAnime = await _animeRepo.GetAnimeByJikanIdAsync(jikanId);
-            if (localAnime != null) return localAnime;
+            if (localAnime != null)
+                return localAnime;
 
-            // 2. Si no existe, llamar a Jikan
             var externalDto = await _jikanApi.GetAnimeByJikanIdAsync(jikanId);
-            if (externalDto == null) throw new KeyNotFoundException($"Anime con ID {jikanId} no encontrado en Jikan.");
+            if (externalDto == null)
+                return null;
 
-            // 3. Mapear DTO a Entidad local usando el método centralizado
             var newAnime = MapDtoToEntity(externalDto);
 
-            // 4. Guardar en BD para futuras consultas
             await _animeRepo.AddAnimeToDbAsync(newAnime);
 
             return newAnime;
         }
 
-        /// <summary>
-        /// Realiza una búsqueda únicamente en la base de datos local.
-        /// </summary>
-        public async Task<IEnumerable<Anime>> SearchLocalAsync(string query)
+        // Búsqueda en Jikan
+        public async Task<IEnumerable<Anime?>> SearchExternalAsync(string animeName)
         {
-            logger.Info("Ejecutando búsqueda local en BD con query: {query}", query);
-            return await _animeRepo.SearchAnimesAsync(query);
-        }
+            var externalDtos = await _jikanApi.SearchAnimesAsync(animeName);
 
-        /// <summary>
-        /// Realiza una búsqueda en la API externa y mapea los resultados a entidades 'Anime'.
-        /// Esto soluciona el error CS0738 al coincidir con el retorno esperado por la interfaz.
-        /// </summary>
-        public async Task<IEnumerable<Anime>> SearchExternalAsync(string query)
-        {
-            logger.Info("Ejecutando búsqueda externa en Jikan con query: {query}", query);
-
-            var externalDtos = await _jikanApi.SearchAnimesAsync(query);
-
-            // Mapeamos cada DTO de la lista a nuestra entidad local 'Anime'
             return externalDtos.Select(MapDtoToEntity);
         }
-        public async Task<IEnumerable<AnimeExternalDto>> GetTopAnimesAsync(int limit)
-        {
-            return await _jikanApi.GetTopAnimesAsync(limit);
-        }
 
-        /// <summary>
-        /// Método privado para centralizar la lógica de mapeo y evitar código repetido.
-        /// </summary>
+        // Mapear los datos recibidos a la entidad de Anime
         private Anime MapDtoToEntity(AnimeExternalDto dto)
         {
             return new Anime

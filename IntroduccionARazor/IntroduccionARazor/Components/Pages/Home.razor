@@ -1,0 +1,67 @@
+﻿@page "/"
+@attribute [StreamRendering]
+
+<PageTitle>Home</PageTitle>
+
+<h3>Listado de personas:</h3>
+@if (personas is null)
+{
+    <img src="https://upload.wikimedia.org/wikipedia/commons/b/b1/Loading_icon.gif" />
+}
+else
+{
+    <ul>
+        @foreach (var persona in personas)
+        {
+            <li>@persona.Nombre - @persona.FechaDeNacimiento.ToString("dd/MM/yyyy") - 
+                @switch(persona.nota)
+                {
+                    case Notas.A:
+                        <text>Excelente</text>
+                        break;
+                    case Notas.B:
+                        <text>Muy bien</text>
+                        break;
+                    case Notas.C:
+                        <text>Bien</text>
+                        break;
+                    case Notas.D:
+                        <text>Medio medio</text>
+                        break;
+                    case Notas.E:
+                        <text>Mal</text>
+                        break;
+                    case Notas.F:
+                        <text>Muy mala</text>
+                        break;
+                    default:
+                        <text>Nota desconocida</text>
+                        break;
+                }
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    List<Persona>? personas = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.Delay(3000);
+
+        personas = new List<Persona>()
+        {
+            new Persona("Alex", new DateTime(2006, 05, 28), Notas.A),
+            new Persona("Isma", new DateTime(2003, 02, 22), Notas.F),
+            new Persona("Fernando", new DateTime(2005, 08, 11), Notas.D)
+        };
+    }
+
+    public record Persona(string Nombre, DateTime FechaDeNacimiento, Notas nota);
+
+    public enum Notas
+    {
+        A,B,C,D,E,F
+    }
+}

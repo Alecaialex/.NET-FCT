@@ -8,7 +8,7 @@ namespace Shiori.Core.Interfaces
     public interface IAnimeRepository
     {
         // Obtener anime por su título
-        Task<IEnumerable<Anime>> SearchAnimesAsync(string query, int page = 1);
+        Task<IEnumerable<Anime>> SearchAnimesLocalAsync(string animeName, int page = 1);
 
         // Añadir anime a la BD
         Task<bool> AddAnimeToDbAsync(Anime anime);

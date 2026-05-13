@@ -1,5 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
+using NLog;
 using Shiori.Core.DTOs;
 using Shiori.Core.Entities;
 using Shiori.Core.Interfaces;
@@ -10,12 +10,11 @@ namespace Shiori.Infra.Repositories
     public class AnimeRepository : IAnimeRepository
     {
         private readonly AppDbContext _context;
-        private readonly ILogger<AnimeRepository> _logger;
+        private static readonly Logger logger = LogManager.GetCurrentClassLogger();
 
-        public AnimeRepository(AppDbContext context, ILogger<AnimeRepository> logger)
+        public AnimeRepository(AppDbContext context)
         {
             _context = context;
-            _logger = logger;
         }
 
         // DateTime a UTC para compatibilidad con postgre
@@ -30,39 +29,35 @@ namespace Shiori.Infra.Repositories
         {
             try
             {
-                _logger.LogDebug("Buscando en base de datos el anime con JikanId: {Id}", jikanId);
                 return await _context.Animes.FirstOrDefaultAsync(a => a.JikanId == jikanId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "DATABASE ERROR: Fallo al intentar obtener el anime con JikanId {Id}", jikanId);
+                logger.Error(ex, "Error en BD al intentar obtener el anime con JikanId {Id}", jikanId);
                 return null;
             }
         }
 
-        // Buscar un anime mediante una query
-        public async Task<IEnumerable<Anime>> SearchAnimesAsync(string query, int page = 1)
+        // Buscar un anime mediante su nombre
+        public async Task<IEnumerable<Anime>> SearchAnimesLocalAsync(string animeName, int page = 1)
         {
             try
             {
-                _logger.LogInformation("Ejecutando búsqueda local en BD. Query: '{Query}', Página: {Page}", query, page);
-
                 var pageSize = 10;
                 var skip = (page - 1) * pageSize;
 
                 var results = await _context.Animes
-                    .Where(a => a.Title.Contains(query) || (a.EnglishTitle != null && a.EnglishTitle.Contains(query)))
+                    .Where(a => a.Title.Contains(animeName) || (a.EnglishTitle != null && a.EnglishTitle.Contains(animeName)))
                     .OrderBy(a => a.Title)
                     .Skip(skip)
                     .Take(pageSize)
                     .ToListAsync();
 
-                _logger.LogInformation("Búsqueda local completada. Encontrados {Count} registros.", results.Count);
                 return results;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "DATABASE ERROR: Error en búsqueda local para la consulta: {Query}", query);
+                logger.Error(ex, "Error en BD al buscar el anime {0}", animeName);
                 return Enumerable.Empty<Anime>();
             }
         }
@@ -72,8 +67,6 @@ namespace Shiori.Infra.Repositories
         {
             try
             {
-                _logger.LogInformation("Insertando nuevo anime en BD: {Title} (JikanID: {Id})", anime.Title, anime.JikanId);
-
                 await _context.Animes.AddAsync(anime);
                 var result = await _context.SaveChangesAsync();
 
@@ -81,7 +74,7 @@ namespace Shiori.Infra.Repositories
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "DATABASE ERROR: No se pudo insertar el anime {Title}", anime.Title);
+                logger.Error(ex, "Error en BD al intentar insertar el anime {0}", anime.Title);
                 return false;
             }
         }
@@ -91,12 +84,10 @@ namespace Shiori.Infra.Repositories
         {
             try
             {
-                _logger.LogInformation("Actualizando datos del anime: {Title} (ID: {Id})", anime.Title, anime.MalId);
-
                 var existing = await _context.Animes.FirstOrDefaultAsync(a => a.JikanId == anime.MalId);
                 if (existing == null)
                 {
-                    _logger.LogWarning("No se pudo actualizar el anime {Id} porque no existe en la base de datos.", anime.MalId);
+                    logger.Warn("Error al actualizar el anime {0} con ID {1}. No existe en la BD", anime.Title, anime.MalId);
                     return false;
                 }
 
@@ -119,7 +110,7 @@ namespace Shiori.Infra.Repositories
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "DATABASE ERROR: Error al actualizar datos del anime con JikanId {Id}", anime.MalId);
+                logger.Error(ex, "Error en BD al actualizar datos del anime {0} {1}", anime.Title, anime.MalId);
                 return false;
             }
         }
@@ -129,12 +120,10 @@ namespace Shiori.Infra.Repositories
         {
             try
             {
-                _logger.LogWarning("Iniciando eliminación del anime con JikanId {Id}", jikanId);
-
                 var existingAnime = await _context.Animes.FirstOrDefaultAsync(a => a.JikanId == jikanId);
                 if (existingAnime == null)
                 {
-                    _logger.LogWarning("Intento de eliminar anime {Id} fallido: No existe en BD.", jikanId);
+                    logger.Warn("Error al eliminar anime con ID {0} fallido: No existe en BD", jikanId);
                     return false;
                 }
 
@@ -144,19 +133,19 @@ namespace Shiori.Infra.Repositories
 
                 if (existingUserAnimes.Any())
                 {
-                    _logger.LogInformation("Eliminando {Count} relaciones de usuarios asociadas al anime {Id}.", existingUserAnimes.Count, jikanId);
+                    logger.Info("Eliminando {0} relaciones de usuarios asociadas al anime {1}.", existingUserAnimes.Count, jikanId);
                     _context.UserAnimes.RemoveRange(existingUserAnimes);
                 }
 
                 _context.Animes.Remove(existingAnime);
                 var result = await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Anime {Id} y sus dependencias eliminados con éxito.", jikanId);
+                logger.Info("Anime {0} y sus dependencias eliminados con éxito.", jikanId);
                 return result > 0;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "DATABASE ERROR: Error al eliminar el anime con JikanId {Id}", jikanId);
+                logger.Error(ex, "Error en BD al eliminar el anime con JikanId {0}", jikanId);
                 return false;
             }
         }
