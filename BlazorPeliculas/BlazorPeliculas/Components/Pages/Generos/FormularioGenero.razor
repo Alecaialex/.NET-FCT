@@ -1,70 +1,14 @@
-﻿@inject IJSRuntime JS
-@implements IDisposable
+﻿
 
-<NavigationLock OnBeforeInternalNavigation="OnBeforeInternalNavigation"></NavigationLock>
-
-<EditForm EditContext="editContext" OnValidSubmit="OnValidSubmit" FormName="CrearGenero">
-    <DataAnnotationsValidator />
+<FormularioEntidad Entidad="Genero" FormularioEnviadoConExito="FormularioEnviadoConExito"
+    EnvioEnCurso="EnvioEnCurso" OnValidSubmit="OnValidSubmit" FormularioInvalido="FormularioInvalido">
     <BPInputText Label="Nombre" @bind-Value="@Genero.Nombre" />
-    <BPBoton Tipo="BotonTipo.Submit" Disabled="formularioInvalido || EnvioEnCurso">
-        @(EnvioEnCurso ?@<text>Enviando...</text> : @<text>Enviar</text>)
-    </BPBoton>
-</EditForm>
+</FormularioEntidad>
 
-                    @code {
-    private EditContext? editContext;
-    private bool formularioInvalido = true;
+@code {
     [Parameter, EditorRequired] public Genero Genero { get; set; } = null!;
     [Parameter, EditorRequired] public bool FormularioEnviadoConExito { get; set; } = false;
     [Parameter, EditorRequired] public bool EnvioEnCurso { get; set; } = false;
     [Parameter, EditorRequired] public EventCallback OnValidSubmit { get; set; }
     [Parameter] public bool FormularioInvalido { get; set; } = true;
-
-    protected override void OnInitialized()
-    {
-        editContext = new EditContext(Genero);
-        editContext.OnFieldChanged += HandleFieldChange;
-        formularioInvalido = FormularioInvalido;
-    }
-
-    private void HandleFieldChange(object? sender, FieldChangedEventArgs e)
-    {
-        if (editContext is not null)
-        {
-            formularioInvalido = !editContext.Validate();
-            StateHasChanged();
-        }
-    }
-
-    private async Task OnBeforeInternalNavigation(LocationChangingContext context)
-    {
-        var formularioFueEditado = editContext!.IsModified();
-
-        if (!formularioFueEditado)
-        {
-            return;
-        }
-
-        if (FormularioEnviadoConExito)
-        {
-            return;
-        }
-
-        var confirmado = await JS.InvokeAsync<bool>("confirm", "¿Deseas salir y perder los cambios?");
-
-        if (confirmado)
-        {
-            return;
-        }
-
-        context.PreventNavigation();
-    }
-
-    public void Dispose()
-    {
-        if (editContext is not null)
-        {
-            editContext.OnFieldChanged -= HandleFieldChange;
-        }
-    }
 }

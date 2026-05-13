@@ -2,6 +2,7 @@ using BlazorPeliculas;
 using BlazorPeliculas.Components;
 using BlazorPeliculas.Servicios;
 using Microsoft.Extensions.DependencyInjection;
+using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,6 +11,8 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddScoped<IServicioPeliculas, ServicioPeliculas>();
+
+builder.Services.AddMudServices();
 
 var app = builder.Build();
 

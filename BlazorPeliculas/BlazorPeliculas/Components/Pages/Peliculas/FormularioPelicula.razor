@@ -1,0 +1,38 @@
+﻿@using BlazorPeliculas.Components.Compartidos.SelectorMultiple
+
+
+<FormularioEntidad Entidad="Pelicula" FormularioEnviadoConExito="FormularioEnviadoConExito"
+                   EnvioEnCurso="EnvioEnCurso" OnValidSubmit="EnvioFormulario" FormularioInvalido="FormularioInvalido">
+    <BPInputText Label="Título" @bind-Value="@Pelicula.Titulo" />
+    <BPInputText Label="Trailer" @bind-Value="@Pelicula.Trailer" />
+    <BPInputDate Label="Fecha de lanzamiento" @bind-Value="@Pelicula.FechaLanzamiento" />
+    <BPCheckbox Label="En cartelera" @bind-Value="@Pelicula.EnCartelera" />
+    <InputImg Label="Poster" ImagenSeleccionada="archivo => Pelicula.PosterArchivo = archivo" ImageUrl="@Pelicula.PosterUrl" />
+    <SelectorMultiple Label="Géneros" Seleccionados="Seleccionados" NoSeleccionados="NoSeleccionados" />
+</FormularioEntidad>
+
+@code {
+    [Parameter] public List<Genero> GenerosSeleccionados { get; set; } = [];
+    [Parameter, EditorRequired] public List<Genero> GenerosNoSeleccionados { get; set; } = [];
+    [Parameter, EditorRequired] public Pelicula Pelicula { get; set; } = null!;
+    [Parameter, EditorRequired] public bool FormularioEnviadoConExito { get; set; } = false;
+    [Parameter, EditorRequired] public bool EnvioEnCurso { get; set; } = false;
+    [Parameter, EditorRequired] public EventCallback OnValidSubmit { get; set; }
+    [Parameter] public bool FormularioInvalido { get; set; } = true;
+
+    private List<SelectorMultipleModelo> Seleccionados { get; set; } = [];
+    private List<SelectorMultipleModelo> NoSeleccionados { get; set; } = [];
+
+    protected override void OnInitialized()
+    {
+        Seleccionados = GenerosSeleccionados.Select(x => new SelectorMultipleModelo(x.Id.ToString(), x.Nombre!)).ToList();
+        NoSeleccionados = GenerosNoSeleccionados.Select(x => new SelectorMultipleModelo(x.Id.ToString(), x.Nombre!)).ToList();
+    }
+
+    private async Task EnvioFormulario()
+    {
+        Pelicula.GenerosPelicula = Seleccionados.Select(x => new GeneroPelicula { GeneroId = int.Parse(x.Identificador) }).ToList();
+
+        await OnValidSubmit.InvokeAsync();
+    }
+}

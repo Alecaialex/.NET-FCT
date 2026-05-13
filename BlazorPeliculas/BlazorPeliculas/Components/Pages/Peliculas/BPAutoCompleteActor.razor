@@ -1,0 +1,21 @@
+﻿<div class="mb-3">
+    <label>Actores:</label>
+    <div>
+        <MudAutocomplete T="Actor" Placeholder="Seleccione un actor..."
+        SearchFunc="">
+            <ItemTemplate Context="actor">
+                <img style="width: 50px" src="@actor.FotoUrl" /> @actor.Nombre
+            </ItemTemplate>
+        </MudAutocomplete>
+    </div>
+</div>
+
+@code {
+    private async Task<IEnumerable<Actor>> Search(string value, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return new List<Actor>();
+        }
+    }
+}

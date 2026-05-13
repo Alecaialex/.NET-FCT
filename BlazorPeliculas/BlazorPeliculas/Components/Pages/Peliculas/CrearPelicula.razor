@@ -2,13 +2,38 @@
 @inject NavigationManager navigationManager
 @rendermode InteractiveServer
 
-<h3>CrearPelicula</h3>
+<h3>Crear Película</h3>
 
-<BPBoton onClick="Crear">Crear película</BPBoton>
+<FormularioPelicula FormularioEnviadoConExito="formularioEnviadoConExito" EnvioEnCurso="envioEnCurso"
+    OnValidSubmit="Crear" Pelicula="pelicula" GenerosNoSeleccionados="GenerosNoSeleccionados"/>
+
 
 @code {
-    void Crear()
+    private bool envioEnCurso = false;
+    private bool formularioEnviadoConExito = false;
+    private Pelicula pelicula = null!;
+    private List<Genero> GenerosNoSeleccionados = new List<Genero>();
+
+    protected override void OnInitialized()
     {
+        pelicula = new();
+        GenerosNoSeleccionados = new List<Genero>()
+        {
+            new Genero(){Id = 1, Nombre = "Comedia"},
+            new Genero(){Id = 2, Nombre = "Drama"},
+            new Genero(){Id = 3, Nombre = "Acción"},
+            new Genero(){Id = 4, Nombre = "Sci-fi"}
+        };
+    }
+
+    private async Task Crear()
+    {
+        envioEnCurso = true;
+        Console.WriteLine($"Creando la película: {pelicula.Titulo}");
+        await Task.Delay(2000);
+        envioEnCurso = false;
+        formularioEnviadoConExito = true;
+        StateHasChanged();
         navigationManager.NavigateTo("/peliculas");
     }
 }
